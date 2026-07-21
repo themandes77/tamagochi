@@ -1,8 +1,7 @@
-
 import 'dart:async';
 import 'package:flame/components.dart';
 
-class Level extends World{
+class Level extends World {
   @override
   FutureOr<void> onLoad() async {
     final soap = await Sprite.load("soap.png");
@@ -10,10 +9,10 @@ class Level extends World{
       sprite: soap,
       size: Vector2.all(499),
       anchor: Anchor.center,
+      position: Vector2(200, 600),
     );
-    component.position = Vector2(200, 600);
     add(component);
-  
+
     return super.onLoad();
   }
 }
