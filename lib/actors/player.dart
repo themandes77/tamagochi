@@ -22,15 +22,4 @@ class Player extends SpriteAnimationGroupComponent with HasGameReference<NtiTama
     
     return super.onLoad();
   }
-  
-  // void _loadAllAnimations() {
-  //   idleAnimation = SpriteAnimation.fromFrameData(
-  //     game.images.fromCache("slime/Slime_Blue.png"),
-  //     SpriteAnimationData.sequenced(
-  //       amount: 6, 
-  //       stepTime: stepTime, 
-  //       textureSize: Vector2(32, 32)
-  //       )
-  //   );
-  // }
 }
