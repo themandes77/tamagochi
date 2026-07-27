@@ -30,18 +30,9 @@ class Nti extends PositionComponent with TapCallbacks {
     }
 
     void tick() {
-        if (hunger > 0) 
-        {
-            hunger = hunger - decayRate;
-        }
-        if (cleanliness > 0) 
-        {
-            cleanliness = cleanliness - decayRate;
-        }
-        if (energy > 0) 
-        {
-            energy = energy - decayRate;
-        }
+        hunger = (hunger - decayRate).clamp(0, 10);
+        cleanliness = (cleanliness - decayRate).clamp(0, 10);
+        energy = (energy - decayRate).clamp(0, 10);
     }
     
     @override

@@ -12,7 +12,7 @@ class NtiTamagochi extends FlameGame{
   var nti = Nti();
   var toolBar = ToolBar();
   double _tickAccumulator = 0;
-  static const double tickInterval = 5;
+  static const double tickInterval = 2;
 
   @override
   FutureOr<void> onLoad() async{
