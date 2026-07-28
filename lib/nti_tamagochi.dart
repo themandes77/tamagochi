@@ -5,7 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_application_1/actors/player.dart';
 import 'package:flutter_application_1/gui.dart';
 
-class NtiTamagochi extends FlameGame{
+class NtiTamagochi extends FlameGame {
   @override
   Color backgroundColor() => const Color(0xFFeeeeee);
 
@@ -15,7 +15,7 @@ class NtiTamagochi extends FlameGame{
   static const double tickInterval = 2;
 
   @override
-  FutureOr<void> onLoad() async{
+  FutureOr<void> onLoad() async {
     await images.loadAllImages();
 
     nti.toolBar = toolBar;
@@ -26,11 +26,11 @@ class NtiTamagochi extends FlameGame{
 
   @override
   void update(double dt) {
-      super.update(dt);
-      _tickAccumulator += dt;
-      if (_tickAccumulator >= tickInterval) {
-        nti.tick();
-        _tickAccumulator -= tickInterval;
-      }
+    super.update(dt);
+    _tickAccumulator += dt;
+    if (_tickAccumulator >= tickInterval) {
+      nti.tick();
+      _tickAccumulator -= tickInterval;
+    }
   }
 }

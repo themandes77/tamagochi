@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/nti_tamagochi.dart';
 
 void main() {
-    WidgetsFlutterBinding.ensureInitialized();
-    Flame.device.fullScreen();
+  WidgetsFlutterBinding.ensureInitialized();
+  Flame.device.fullScreen();
 
-    NtiTamagochi game = NtiTamagochi();
-    runApp(GameWidget(game: kDebugMode ? NtiTamagochi() : game));
+  NtiTamagochi game = NtiTamagochi();
+  runApp(GameWidget(game: kDebugMode ? NtiTamagochi() : game));
 }
