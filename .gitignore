@@ -3,6 +3,14 @@
 *.log
 *.pyc
 *.swp
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
 .DS_Store
 .atom/
 .build/
@@ -43,3 +51,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local signing and machine-specific Android configuration
+**/key.properties
+**/local.properties
+
+# Local test output
+test-results/
