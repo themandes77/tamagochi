@@ -13,6 +13,6 @@ void main() {
     expect(find.text('Personalización'), findsOneWidget);
     expect(find.text('200 monedas'), findsOneWidget);
     expect(find.text('Slime azul'), findsOneWidget);
-    expect(find.text('Tema Techno'), findsOneWidget);
+    expect(find.text('Tema original'), findsOneWidget);
   });
 }

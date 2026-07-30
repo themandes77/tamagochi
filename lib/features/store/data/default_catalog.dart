@@ -34,10 +34,18 @@ const defaultShopCatalog = <ShopItem>[
     customizationId: 'orange',
   ),
   ShopItem(
-    id: 'theme_normal',
-    name: 'Tema normal',
-    description: 'La apariencia predeterminada de la habitación.',
+    id: 'theme_original',
+    name: 'Tema original',
+    description: 'El fondo clasico de la primera version.',
     price: 0,
+    kind: ShopItemKind.theme,
+    customizationId: 'original',
+  ),
+  ShopItem(
+    id: 'theme_normal',
+    name: 'Tema Aniversario',
+    description: 'La apariencia predeterminada de la habitación.',
+    price: 100,
     kind: ShopItemKind.theme,
     customizationId: 'normal',
   ),
@@ -48,6 +56,14 @@ const defaultShopCatalog = <ShopItem>[
     price: 120,
     kind: ShopItemKind.theme,
     customizationId: 'techno',
+  ),
+  ShopItem(
+    id: 'theme_adventure',
+    name: 'Tema Aventura',
+    description: 'Una habitacion para explorar nuevos mundos.',
+    price: 140,
+    kind: ShopItemKind.theme,
+    customizationId: 'adventure',
   ),
 ];
 

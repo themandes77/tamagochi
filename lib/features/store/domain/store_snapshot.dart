@@ -9,9 +9,9 @@ class StoreSnapshot {
   factory StoreSnapshot.initial({int coins = 200}) {
     return StoreSnapshot(
       coins: coins,
-      ownedItemIds: const {'skin_purple', 'theme_normal'},
+      ownedItemIds: const {'skin_purple', 'theme_original'},
       equippedSkinId: 'purple',
-      equippedThemeId: 'normal',
+      equippedThemeId: 'original',
     );
   }
 
@@ -24,7 +24,7 @@ class StoreSnapshot {
           ? ownedItems.whereType<String>().toSet()
           : const <String>{},
       equippedSkinId: json['equippedSkinId'] as String? ?? 'purple',
-      equippedThemeId: json['equippedThemeId'] as String? ?? 'normal',
+      equippedThemeId: json['equippedThemeId'] as String? ?? 'original',
     );
   }
 

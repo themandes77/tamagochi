@@ -18,10 +18,10 @@ void main() {
     test('starts with the free skin and theme equipped', () {
       expect(controller.coins, 200);
       expect(controller.equippedSkinId, 'purple');
-      expect(controller.equippedThemeId, 'normal');
+      expect(controller.equippedThemeId, 'original');
       expect(
         controller.ownedItemIds,
-        containsAll(['skin_purple', 'theme_normal']),
+        containsAll(['skin_purple', 'theme_original']),
       );
     });
 
