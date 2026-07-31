@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -15,7 +17,20 @@ Future<void> main() async {
   );
   await storeController.initialize();
 
-  runApp(NtiApp(game: NtiTamagochi(), storeController: storeController));
+  final game = NtiTamagochi(
+    initialOutfit: storeController.selectedOutfit,
+    initialTheme: storeController.selectedTheme,
+  );
+  storeController.addListener(() {
+    unawaited(
+      game.applyCustomization(
+        outfit: storeController.selectedOutfit,
+        theme: storeController.selectedTheme,
+      ),
+    );
+  });
+
+  runApp(NtiApp(game: game, storeController: storeController));
 }
 
 class NtiApp extends StatelessWidget {

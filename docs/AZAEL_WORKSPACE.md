@@ -1,11 +1,11 @@
 # Espacio de trabajo de Azael
 
-Esta rama prepara el módulo de economía, tienda, inventario, skins y temas sin
+Esta rama prepara el módulo de economía, tienda, inventario, trajes y fondos sin
 depender de la pantalla principal del Tamagotchi.
 
 ## Rama
 
-`feature/azael-store-customization`
+`feature/azael-store-functional`
 
 La rama parte del `origin/main` actualizado. No hagas cambios directamente en
 `main`.
@@ -32,8 +32,8 @@ lib/features/store/
 lib/features/customization/
 lib/dev/azael_store_preview.dart
 test/features/store/
-assets/Slimes/
-assets/themes/
+assets/images/outfits/
+assets/images/backgrounds/
 ```
 
 Evita modificar sin coordinación:
@@ -55,10 +55,10 @@ pubspec.lock
 
 - `coins`: saldo actual.
 - `purchase(itemId)`: compra un artículo.
-- `equip(itemId)`: equipa una skin o tema que ya pertenece al jugador.
+- `equip(itemId)`: equipa un traje o fondo que ya pertenece al jugador.
 - `addCoins(amount)`: recibe recompensas de un minijuego.
 - `ownedItemIds`: inventario.
-- `selectedSkin` y `selectedTheme`: selección actual.
+- `selectedOutfit` y `selectedTheme`: selección actual.
 
 ### StoreRepository
 
@@ -66,19 +66,13 @@ Es la interfaz para persistir `StoreSnapshot`. La vista de desarrollo usa
 `InMemoryStoreRepository`. Posteriormente se puede crear un adaptador con la
 solución de guardado elegida por el equipo sin cambiar la tienda.
 
-## Sprites
+## Assets visuales
 
-El catálogo usa `assets/Slimes/slime_idle2.png`.
-
-- Cada fotograma lógico mide `80 × 72`.
-- Cada color corresponde a una fila.
-- Morado: fila 0.
-- Naranja: fila 2.
-- Azul: fila 3.
-- Verde: fila 4.
-
-La UI actual usa formas de color como placeholder. La siguiente tarea visual es
-crear un componente que recorte y anime la fila adecuada del sprite sheet.
+El catálogo usa los cuatro PNG cuadrados de `assets/images/outfits/` y los
+fondos de `assets/images/backgrounds/`. La vista previa no altera la relación de
+aspecto: el cuerpo, los ojos y la boca se componen por capas. Las animaciones de
+respiración, parpadeo, mirada y habla se producen en código para no necesitar un
+archivo distinto por cada fotograma.
 
 ## Comandos de verificación
 
@@ -95,14 +89,14 @@ git diff --check
 
 ## Lista de trabajo
 
-- [ ] Sustituir los previews de color por sprites animados.
-- [ ] Diseñar el fondo Techno.
+- [x] Sustituir los previews provisionales por los trajes reales animados.
+- [x] Integrar los fondos Original, Aniversario, Techno y Aventura.
 - [ ] Ajustar nombres, precios y balance con el equipo.
 - [ ] Añadir confirmación antes de comprar.
 - [ ] Definir sonidos de compra, error y equipamiento.
 - [ ] Integrar recompensas de `GameResult`.
 - [ ] Conectar `StoreRepository` con la persistencia compartida.
-- [ ] Integrar la tienda como overlay sin modificar directamente el núcleo.
+- [x] Integrar la tienda como overlay coordinado con el núcleo.
 - [ ] Probar en un teléfono Android.
 
 ## Flujo de Git

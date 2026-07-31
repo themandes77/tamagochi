@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flame/game.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/actors/player.dart';
 import 'package:flutter_application_1/features/customization/data/default_customizations.dart';
+import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
+import 'package:flutter_application_1/features/customization/domain/theme_option.dart';
 import 'package:flutter_application_1/features/customization/presentation/outfit_debug_selector.dart';
 import 'package:flutter_application_1/features/customization/presentation/room_background.dart';
 import 'package:flutter_application_1/features/customization/presentation/theme_debug_selector.dart';
@@ -12,15 +14,23 @@ import 'package:flutter_application_1/features/store/presentation/store_access_b
 import 'package:flutter_application_1/gui.dart';
 
 class NtiTamagochi extends FlameGame {
+  NtiTamagochi({
+    NtiOutfit initialOutfit = NtiOutfit.original,
+    ThemeOption? initialTheme,
+  }) : nti = Nti(outfit: initialOutfit),
+       _initialTheme = initialTheme ?? defaultThemeOptions.first;
+
   static const storeOverlayId = 'store';
+
+  final ThemeOption _initialTheme;
 
   @override
   Color backgroundColor() => const Color(0xFFeeeeee);
 
-  var nti = Nti();
+  final Nti nti;
   var toolBar = ToolBar();
   late final RoomBackground roomBackground = RoomBackground(
-    theme: defaultThemeOptions.first,
+    theme: _initialTheme,
   );
   late final StoreAccessButton storeAccessButton = StoreAccessButton(
     onPressed: openStore,
@@ -55,6 +65,19 @@ class NtiTamagochi extends FlameGame {
   void closeStore() {
     overlays.remove(storeOverlayId);
     resumeEngine();
+  }
+
+  Future<void> applyCustomization({
+    required NtiOutfit outfit,
+    required ThemeOption theme,
+  }) async {
+    if (!isLoaded) {
+      return;
+    }
+    if (nti.outfit != outfit) {
+      await nti.wear(outfit);
+    }
+    await roomBackground.setTheme(theme);
   }
 
   @override

@@ -1,6 +1,6 @@
 # Control del proyecto NT Tamagochi
 
-Última actualización: 29 de julio de 2026  
+Última actualización: 31 de julio de 2026
 Objetivo de Early Access: antes del 10 de agosto de 2026
 
 Este documento es la fuente única para saber qué está terminado, qué está en
@@ -71,26 +71,35 @@ Base local: commit `9ddda1e` del Sprint 1.
 | ID | Tarea | Estado | Dependencia |
 |---|---|---|---|
 | AZ-101 | Sustituir el selector temporal por acceso real a la tienda | ✅ Terminado | Ninguna |
-| AZ-102 | Mostrar los aspectos y fondos reales en el catálogo | ⏳ Pendiente | Ninguna |
+| AZ-102 | Mostrar los aspectos y fondos reales en el catálogo | ✅ Terminado | Ninguna |
 | AZ-103 | Acordar precios y balance de monedas | ⏳ Pendiente | Decisión del equipo |
 | AZ-104 | Añadir confirmación antes de comprar | ⏳ Pendiente | AZ-102 |
-| AZ-105 | Comprar artículos y descontar monedas | ⏳ Pendiente | AZ-103 |
-| AZ-106 | Equipar aspectos y fondos comprados | ⏳ Pendiente | AZ-102 |
-| AZ-107 | Conectar el equipamiento con NTI y la habitación | ⏳ Pendiente | AZ-106 |
+| AZ-105 | Comprar artículos y descontar monedas | ✅ Terminado | Precios provisionales hasta AZ-103 |
+| AZ-106 | Equipar aspectos y fondos comprados | ✅ Terminado | AZ-102 |
+| AZ-107 | Conectar el equipamiento con NTI y la habitación | ✅ Terminado | AZ-106 |
 | AZ-108 | Guardar monedas, compras y selección localmente | ⏳ Pendiente | AZ-105 |
 | AZ-109 | Restaurar el estado al abrir la aplicación | ⏳ Pendiente | AZ-108 |
 | AZ-110 | Recibir recompensas de los minijuegos | ⏳ Pendiente | Contrato de Marco |
 | AZ-111 | Añadir pruebas de compra, equipamiento y persistencia | ⏳ Pendiente | AZ-105 a AZ-109 |
 | AZ-112 | Verificar comportamiento compatible con Android e iOS | ⏳ Pendiente | AZ-111 |
+| AZ-113 | Revisar proporción circular de los aspectos | ✅ Terminado | AZ-102 |
+| AZ-114 | Crear vista previa reutilizable de NTI animado | ✅ Terminado | AZ-113 |
+| AZ-115 | Añadir microinteracciones a tienda y personalización | ✅ Terminado | AZ-114 |
+| AZ-116 | Validar rendimiento de las animaciones | 🟡 En progreso | AZ-115 |
 
 ### Avance del Sprint 2
 
 - `AZ-101`: el botón `TIENDA` abre la tienda como overlay sobre la aplicación
   real, pausa el juego y lo reanuda al cerrar.
+- `AZ-102`: el catálogo provisional de Slimes fue sustituido por los aspectos
+  Original, Aniversario, Techno y Aventurero y por los cuatro fondos reales.
+- La vista previa usa los PNG cuadrados sin deformarlos y añade respiración,
+  parpadeo, mirada, habla, cambios animados y microinteracciones.
+- Los artículos equipados actualizan a NTI y el fondo de la habitación al
+  cerrar la tienda.
+- Los precios actuales son provisionales hasta que el equipo cierre `AZ-103`.
 - La tienda utiliza temporalmente `InMemoryStoreRepository`; el guardado entre
   reinicios se implementará en `AZ-108`.
-- Los artículos visuales antiguos se sustituirán por los aspectos y fondos
-  definitivos en `AZ-102`.
 
 ### Criterio de cierre del Sprint 2
 
