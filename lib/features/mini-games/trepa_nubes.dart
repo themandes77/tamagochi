@@ -21,9 +21,11 @@ class TrepaNubes extends PositionComponent
   static const double playerH = 60;
   static const double platGap = 60;
   static const double gapVariance = 20;
+  static const double baseScrollSpeed = 80;
 
   double get _currentGravity => baseGravity + (score / 10) * 20;
   double get _currentPlatW => max(minPlatW, basePlatW - (score / 8) * 2);
+  double get _currentScrollSpeed => baseScrollSpeed + (score / 50) * 5;
 
   late double px, py;
   double pvy = 0;
@@ -84,6 +86,8 @@ class TrepaNubes extends PositionComponent
         }
       }
     }
+
+    camY -= _currentScrollSpeed * dt;
 
     final screenY = py - camY;
     if (screenY < size.y * 0.35) {
