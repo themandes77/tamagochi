@@ -20,7 +20,7 @@ progreso, quién es responsable y qué bloquea al equipo.
 | Sprint | Objetivo | Estado |
 |---|---|---|
 | Sprint 1 | Base de personalización y recursos visuales | 🟡 En cierre |
-| Sprint 2 | Tienda funcional, equipamiento y guardado | ⏳ Pendiente |
+| Sprint 2 | Tienda funcional, equipamiento y guardado | 🟡 En progreso |
 | Sprint 3 | Integración de los módulos de los tres integrantes | ⏳ Pendiente |
 | Sprint 4 | Pruebas, correcciones y Early Access | ⏳ Pendiente |
 
@@ -65,13 +65,12 @@ el Pull Request esté revisado e integrado.
 ## Sprint 2 — Tienda funcional
 
 Responsable principal: Azael  
-Rama propuesta: continuar en `feature/azael-store-customization` hasta cerrar
-el Pull Request actual; después crear una rama nueva desde la rama compartida
-actualizada.
+Rama: `feature/azael-store-functional`
+Base local: commit `9ddda1e` del Sprint 1.
 
 | ID | Tarea | Estado | Dependencia |
 |---|---|---|---|
-| AZ-101 | Sustituir el selector temporal por acceso real a la tienda | ⏳ Pendiente | Ninguna |
+| AZ-101 | Sustituir el selector temporal por acceso real a la tienda | ✅ Terminado | Ninguna |
 | AZ-102 | Mostrar los aspectos y fondos reales en el catálogo | ⏳ Pendiente | Ninguna |
 | AZ-103 | Acordar precios y balance de monedas | ⏳ Pendiente | Decisión del equipo |
 | AZ-104 | Añadir confirmación antes de comprar | ⏳ Pendiente | AZ-102 |
@@ -83,6 +82,15 @@ actualizada.
 | AZ-110 | Recibir recompensas de los minijuegos | ⏳ Pendiente | Contrato de Marco |
 | AZ-111 | Añadir pruebas de compra, equipamiento y persistencia | ⏳ Pendiente | AZ-105 a AZ-109 |
 | AZ-112 | Verificar comportamiento compatible con Android e iOS | ⏳ Pendiente | AZ-111 |
+
+### Avance del Sprint 2
+
+- `AZ-101`: el botón `TIENDA` abre la tienda como overlay sobre la aplicación
+  real, pausa el juego y lo reanuda al cerrar.
+- La tienda utiliza temporalmente `InMemoryStoreRepository`; el guardado entre
+  reinicios se implementará en `AZ-108`.
+- Los artículos visuales antiguos se sustituirán por los aspectos y fondos
+  definitivos en `AZ-102`.
 
 ### Criterio de cierre del Sprint 2
 

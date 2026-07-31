@@ -4,6 +4,18 @@ import 'package:flutter_application_1/features/customization/domain/theme_option
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 
+ThemeData storeThemeFrom(ThemeOption option) {
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Color(option.accentColorValue),
+      brightness: option.id == 'techno' ? Brightness.dark : Brightness.light,
+    ),
+    scaffoldBackgroundColor: Color(option.backgroundColorValue),
+    cardColor: Color(option.surfaceColorValue),
+  );
+}
+
 class StorePreviewApp extends StatelessWidget {
   const StorePreviewApp({required this.controller, super.key});
 
@@ -17,30 +29,19 @@ class StorePreviewApp extends StatelessWidget {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Tienda NT Tamagochi',
-          theme: _themeFrom(controller.selectedTheme),
+          theme: storeThemeFrom(controller.selectedTheme),
           home: StoreScreen(controller: controller),
         );
       },
     );
   }
-
-  ThemeData _themeFrom(ThemeOption option) {
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Color(option.accentColorValue),
-        brightness: option.id == 'techno' ? Brightness.dark : Brightness.light,
-      ),
-      scaffoldBackgroundColor: Color(option.backgroundColorValue),
-      cardColor: Color(option.surfaceColorValue),
-    );
-  }
 }
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({required this.controller, super.key});
+  const StoreScreen({required this.controller, this.onClose, super.key});
 
   final StoreController controller;
+  final VoidCallback? onClose;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -59,6 +60,14 @@ class _StoreScreenState extends State<StoreScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: widget.onClose == null
+            ? null
+            : IconButton(
+                key: const ValueKey('store_close_button'),
+                tooltip: 'Cerrar tienda',
+                onPressed: widget.onClose,
+                icon: const Icon(Icons.close),
+              ),
         title: const Text('Personalización'),
         actions: [
           Padding(
