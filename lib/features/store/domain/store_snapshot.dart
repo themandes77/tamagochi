@@ -2,15 +2,15 @@ class StoreSnapshot {
   StoreSnapshot({
     required this.coins,
     required Set<String> ownedItemIds,
-    required this.equippedSkinId,
+    required this.equippedOutfitId,
     required this.equippedThemeId,
   }) : ownedItemIds = Set.unmodifiable(ownedItemIds);
 
   factory StoreSnapshot.initial({int coins = 200}) {
     return StoreSnapshot(
       coins: coins,
-      ownedItemIds: const {'skin_purple', 'theme_original'},
-      equippedSkinId: 'purple',
+      ownedItemIds: const {'outfit_original', 'theme_original'},
+      equippedOutfitId: 'original',
       equippedThemeId: 'original',
     );
   }
@@ -23,26 +23,29 @@ class StoreSnapshot {
       ownedItemIds: ownedItems is List
           ? ownedItems.whereType<String>().toSet()
           : const <String>{},
-      equippedSkinId: json['equippedSkinId'] as String? ?? 'purple',
+      equippedOutfitId:
+          json['equippedOutfitId'] as String? ??
+          json['equippedSkinId'] as String? ??
+          'original',
       equippedThemeId: json['equippedThemeId'] as String? ?? 'original',
     );
   }
 
   final int coins;
   final Set<String> ownedItemIds;
-  final String equippedSkinId;
+  final String equippedOutfitId;
   final String equippedThemeId;
 
   StoreSnapshot copyWith({
     int? coins,
     Set<String>? ownedItemIds,
-    String? equippedSkinId,
+    String? equippedOutfitId,
     String? equippedThemeId,
   }) {
     return StoreSnapshot(
       coins: coins ?? this.coins,
       ownedItemIds: ownedItemIds ?? this.ownedItemIds,
-      equippedSkinId: equippedSkinId ?? this.equippedSkinId,
+      equippedOutfitId: equippedOutfitId ?? this.equippedOutfitId,
       equippedThemeId: equippedThemeId ?? this.equippedThemeId,
     );
   }
@@ -51,7 +54,7 @@ class StoreSnapshot {
     return {
       'coins': coins,
       'ownedItemIds': ownedItemIds.toList()..sort(),
-      'equippedSkinId': equippedSkinId,
+      'equippedOutfitId': equippedOutfitId,
       'equippedThemeId': equippedThemeId,
     };
   }

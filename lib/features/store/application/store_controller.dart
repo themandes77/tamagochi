@@ -2,7 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/features/customization/data/default_customizations.dart';
-import 'package:flutter_application_1/features/customization/domain/pet_skin.dart';
+import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/customization/domain/theme_option.dart';
 import 'package:flutter_application_1/features/store/data/default_catalog.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
@@ -13,14 +13,14 @@ class StoreController extends ChangeNotifier {
   StoreController({
     required this.repository,
     this.catalog = defaultShopCatalog,
-    this.skins = defaultPetSkins,
+    this.outfits = NtiOutfit.values,
     this.themes = defaultThemeOptions,
     int initialCoins = 200,
   }) : _state = StoreSnapshot.initial(coins: initialCoins);
 
   final StoreRepository repository;
   final List<ShopItem> catalog;
-  final List<PetSkin> skins;
+  final List<NtiOutfit> outfits;
   final List<ThemeOption> themes;
 
   StoreSnapshot _state;
@@ -28,12 +28,13 @@ class StoreController extends ChangeNotifier {
 
   bool get isReady => _isReady;
   int get coins => _state.coins;
-  String get equippedSkinId => _state.equippedSkinId;
+  String get equippedOutfitId => _state.equippedOutfitId;
   String get equippedThemeId => _state.equippedThemeId;
   UnmodifiableSetView<String> get ownedItemIds =>
       UnmodifiableSetView(_state.ownedItemIds);
 
-  PetSkin get selectedSkin => _findSkin(equippedSkinId) ?? skins.first;
+  NtiOutfit get selectedOutfit =>
+      _findOutfit(equippedOutfitId) ?? outfits.first;
 
   ThemeOption get selectedTheme => _findTheme(equippedThemeId) ?? themes.first;
 
@@ -52,7 +53,7 @@ class StoreController extends ChangeNotifier {
 
   bool isEquipped(ShopItem item) {
     return switch (item.kind) {
-      ShopItemKind.skin => item.customizationId == equippedSkinId,
+      ShopItemKind.outfit => item.customizationId == equippedOutfitId,
       ShopItemKind.theme => item.customizationId == equippedThemeId,
     };
   }
@@ -89,8 +90,8 @@ class StoreController extends ChangeNotifier {
     }
 
     _state = switch (item.kind) {
-      ShopItemKind.skin => _state.copyWith(
-        equippedSkinId: item.customizationId,
+      ShopItemKind.outfit => _state.copyWith(
+        equippedOutfitId: item.customizationId,
       ),
       ShopItemKind.theme => _state.copyWith(
         equippedThemeId: item.customizationId,
@@ -122,10 +123,10 @@ class StoreController extends ChangeNotifier {
     return null;
   }
 
-  PetSkin? _findSkin(String id) {
-    for (final skin in skins) {
-      if (skin.id == id) {
-        return skin;
+  NtiOutfit? _findOutfit(String id) {
+    for (final outfit in outfits) {
+      if (outfit.id == id) {
+        return outfit;
       }
     }
     return null;

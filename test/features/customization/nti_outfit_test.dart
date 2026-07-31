@@ -5,6 +5,10 @@ void main() {
   test('outfits expose stable unique ids and asset paths', () {
     expect(NtiOutfit.original.id, 'original');
     expect(NtiOutfit.original.assetPath, 'outfits/nti_original.png');
+    expect(
+      NtiOutfit.original.flutterAssetPath,
+      'assets/images/outfits/nti_original.png',
+    );
     expect(NtiOutfit.anniversary.id, 'anniversary');
     expect(NtiOutfit.anniversary.displayName, 'Aniversario');
     expect(NtiOutfit.techno.assetPath, 'outfits/nti_techno.png');

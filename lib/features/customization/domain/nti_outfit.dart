@@ -41,4 +41,6 @@ enum NtiOutfit {
   final String assetPath;
   final double eyeCenterY;
   final double mouthCenterY;
+
+  String get flutterAssetPath => 'assets/images/$assetPath';
 }

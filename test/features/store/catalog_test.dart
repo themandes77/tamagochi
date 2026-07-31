@@ -1,4 +1,5 @@
 import 'package:flutter_application_1/features/customization/data/default_customizations.dart';
+import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/store/data/default_catalog.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,8 +15,8 @@ void main() {
   test('catalog items reference existing customizations', () {
     for (final item in defaultShopCatalog) {
       final exists = switch (item.kind) {
-        ShopItemKind.skin => defaultPetSkins.any(
-          (skin) => skin.id == item.customizationId,
+        ShopItemKind.outfit => NtiOutfit.values.any(
+          (outfit) => outfit.id == item.customizationId,
         ),
         ShopItemKind.theme => defaultThemeOptions.any(
           (theme) => theme.id == item.customizationId,

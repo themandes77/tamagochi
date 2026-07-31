@@ -14,4 +14,9 @@ class ThemeOption {
   final int backgroundColorValue;
   final int surfaceColorValue;
   final int accentColorValue;
+
+  String? get flutterBackgroundAssetPath {
+    final path = backgroundAssetPath;
+    return path == null ? null : 'assets/images/$path';
+  }
 }
