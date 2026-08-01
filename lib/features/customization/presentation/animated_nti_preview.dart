@@ -114,11 +114,7 @@ class _AnimatedNtiPreviewState extends State<AnimatedNtiPreview>
               offset: Offset(0, -bounce * 5),
               child: Transform.rotate(
                 angle: animationsDisabled ? 0 : breath * 0.006,
-                child: Transform.scale(
-                  scaleX: 1 + breath * 0.012,
-                  scaleY: 1 - breath * 0.006,
-                  child: child,
-                ),
+                child: Transform.scale(scale: 1 + breath * 0.006, child: child),
               ),
             );
           },

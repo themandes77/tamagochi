@@ -84,7 +84,7 @@ class Nti extends PositionComponent with TapCallbacks {
     _idleTime += dt;
 
     final breath = math.sin(_idleTime * math.pi);
-    scale = Vector2(1 + breath * 0.012, 1 - breath * 0.006);
+    scale = Vector2.all(1 + breath * 0.006);
     angle = math.sin(_idleTime * 0.8) * 0.006;
   }
 

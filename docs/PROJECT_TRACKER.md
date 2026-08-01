@@ -91,6 +91,8 @@ Base local: commit `9ddda1e` del Sprint 1.
 | AZ-120 | Recrear pantalla de personalización e inventario | ✅ Terminado | AZ-118 |
 | AZ-121 | Conservar animaciones en la recreación visual | ✅ Terminado | AZ-119 y AZ-120 |
 | AZ-122 | Validar diseño responsive en móvil y web | ✅ Terminado | AZ-121 |
+| AZ-123 | Unificar las cuatro skins con una silueta esférica | ✅ Terminado | Referencia aprobada |
+| AZ-124 | Evitar deformación de NTI durante la respiración | ✅ Terminado | AZ-123 |
 
 ### Avance del Sprint 2
 
@@ -108,6 +110,8 @@ Base local: commit `9ddda1e` del Sprint 1.
   reacciones de NTI; no utiliza capturas estáticas como interfaz.
 - El diseño fue revisado en una ventana móvil de 390 × 844 y en Flutter Web sin
   errores de consola ni desbordamientos visibles.
+- Original, Aniversario, Techno y Aventurero usan la misma silueta esférica
+  aprobada, y la respiración conserva su proporción circular.
 - Los precios actuales son provisionales hasta que el equipo cierre `AZ-103`.
 - La tienda utiliza temporalmente `InMemoryStoreRepository`; el guardado entre
   reinicios se implementará en `AZ-108`.

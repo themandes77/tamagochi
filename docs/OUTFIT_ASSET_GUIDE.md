@@ -2,17 +2,19 @@
 
 ## Plantilla maestra
 
-`assets/images/outfits/nti_anniversary.png` define la estructura visual de
+`assets/images/outfits/nti_original_round.png` define la estructura visual de
 todos los trajes:
 
 - Lienzo cuadrado de 1254 × 1254 píxeles.
-- Cuerpo compacto, circular y con la parte inferior redondeada.
+- Cuerpo completamente esférico, tan ancho como alto, basado en la referencia
+  visual aprobada por el equipo.
 - Misma escala, centro, pose frontal, iluminación y material morado.
 - Una sola antena flotante, conservando posición y proporciones.
 - Rostro vacío y liso: los ojos y la boca se dibujan y animan desde Flame.
 
-`assets/images/outfits/nti_original.png` conserva esa misma estructura sin
-ropa ni accesorios y es la apariencia inicial de NTI.
+Las variantes `nti_anniversary_round.png`, `nti_techno_round.png` y
+`nti_adventurer_round.png` conservan esa misma esfera y únicamente añaden ropa
+y accesorios. La variante Original es la apariencia inicial de NTI.
 
 ## Regla para crear un traje
 
@@ -28,7 +30,7 @@ traje se registran en:
 
 ## Validación antes de agregarlo
 
-1. Comparar la silueta con `nti_anniversary.png`.
+1. Comparar la silueta con `nti_original_round.png`.
 2. Confirmar que el cuerpo sea circular, no ovalado ni con forma de frijol.
 3. Confirmar que no existan ojos o boca pintados en el PNG.
 4. Revisar transparencia, bordes y ausencia de fondo verde.
