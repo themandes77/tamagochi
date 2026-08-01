@@ -2,28 +2,27 @@ enum NtiOutfit {
   original(
     id: 'original',
     displayName: 'Original',
-    assetPath: 'outfits/nti_original_round.png',
     eyeCenterY: 0.43,
     mouthCenterY: 0.50,
   ),
   anniversary(
     id: 'anniversary',
     displayName: 'Aniversario',
-    assetPath: 'outfits/nti_anniversary_round.png',
+    overlayAssetPath: 'outfits/nti_anniversary_overlay.png',
     eyeCenterY: 0.36,
     mouthCenterY: 0.44,
   ),
   techno(
     id: 'techno',
     displayName: 'Techno',
-    assetPath: 'outfits/nti_techno_round.png',
+    overlayAssetPath: 'outfits/nti_techno_overlay.png',
     eyeCenterY: 0.45,
     mouthCenterY: 0.52,
   ),
   adventurer(
     id: 'adventurer',
     displayName: 'Aventurero',
-    assetPath: 'outfits/nti_adventurer_round.png',
+    overlayAssetPath: 'outfits/nti_adventurer_overlay.png',
     eyeCenterY: 0.45,
     mouthCenterY: 0.50,
   );
@@ -31,16 +30,23 @@ enum NtiOutfit {
   const NtiOutfit({
     required this.id,
     required this.displayName,
-    required this.assetPath,
+    this.overlayAssetPath,
     required this.eyeCenterY,
     required this.mouthCenterY,
   });
 
+  static const bodyAssetPath = 'outfits/nti_body_master.png';
+
   final String id;
   final String displayName;
-  final String assetPath;
+  final String? overlayAssetPath;
   final double eyeCenterY;
   final double mouthCenterY;
 
-  String get flutterAssetPath => 'assets/images/$assetPath';
+  static const flutterBodyAssetPath = 'assets/images/$bodyAssetPath';
+
+  String? get flutterOverlayAssetPath {
+    final path = overlayAssetPath;
+    return path == null ? null : 'assets/images/$path';
+  }
 }

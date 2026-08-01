@@ -93,6 +93,8 @@ Base local: commit `9ddda1e` del Sprint 1.
 | AZ-122 | Validar diseño responsive en móvil y web | ✅ Terminado | AZ-121 |
 | AZ-123 | Unificar las cuatro skins con una silueta esférica | ✅ Terminado | Referencia aprobada |
 | AZ-124 | Evitar deformación de NTI durante la respiración | ✅ Terminado | AZ-123 |
+| AZ-125 | Separar el cuerpo maestro de los overlays de vestuario | ✅ Terminado | AZ-123 |
+| AZ-126 | Validar que todas las skins reutilicen el mismo cuerpo | ✅ Terminado | AZ-125 |
 
 ### Avance del Sprint 2
 
@@ -112,6 +114,12 @@ Base local: commit `9ddda1e` del Sprint 1.
   errores de consola ni desbordamientos visibles.
 - Original, Aniversario, Techno y Aventurero usan la misma silueta esférica
   aprobada, y la respiración conserva su proporción circular.
+- La auditoría visual detectó que las primeras skins redondas todavía tenían
+  cuerpos generados de manera independiente; `AZ-125` reemplaza esa solución
+  por un único cuerpo maestro y overlays transparentes.
+- El cuerpo maestro tiene un diámetro exacto de 864 × 864 píxeles. El overlay
+  de Aventurero fue ajustado a 866 píxeles de ancho para que la capa no simule
+  una silueta ovalada.
 - Los precios actuales son provisionales hasta que el equipo cierre `AZ-103`.
 - La tienda utiliza temporalmente `InMemoryStoreRepository`; el guardado entre
   reinicios se implementará en `AZ-108`.

@@ -2,17 +2,26 @@ import 'package:flutter_application_1/features/customization/domain/nti_outfit.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('outfits expose stable unique ids and asset paths', () {
+  test('outfits share one body and expose only clothing overlays', () {
     expect(NtiOutfit.original.id, 'original');
-    expect(NtiOutfit.original.assetPath, 'outfits/nti_original_round.png');
+    expect(NtiOutfit.bodyAssetPath, 'outfits/nti_body_master.png');
     expect(
-      NtiOutfit.original.flutterAssetPath,
-      'assets/images/outfits/nti_original_round.png',
+      NtiOutfit.flutterBodyAssetPath,
+      'assets/images/outfits/nti_body_master.png',
     );
+    expect(NtiOutfit.original.overlayAssetPath, isNull);
+    expect(NtiOutfit.original.flutterOverlayAssetPath, isNull);
     expect(NtiOutfit.anniversary.id, 'anniversary');
     expect(NtiOutfit.anniversary.displayName, 'Aniversario');
-    expect(NtiOutfit.techno.assetPath, 'outfits/nti_techno_round.png');
-    expect(NtiOutfit.adventurer.assetPath, 'outfits/nti_adventurer_round.png');
+    expect(
+      NtiOutfit.anniversary.overlayAssetPath,
+      'outfits/nti_anniversary_overlay.png',
+    );
+    expect(NtiOutfit.techno.overlayAssetPath, 'outfits/nti_techno_overlay.png');
+    expect(
+      NtiOutfit.adventurer.overlayAssetPath,
+      'outfits/nti_adventurer_overlay.png',
+    );
     expect(
       NtiOutfit.values.map((outfit) => outfit.id).toSet(),
       hasLength(NtiOutfit.values.length),

@@ -35,11 +35,7 @@ class NtiStaticPreview extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(
-              outfit.flutterAssetPath,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-            ),
+            _NtiLayeredArtwork(outfit: outfit),
             CustomPaint(
               painter: _NtiPreviewFacePainter(
                 outfit: outfit,
@@ -136,9 +132,8 @@ class _AnimatedNtiPreviewState extends State<AnimatedNtiPreview>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    widget.outfit.flutterAssetPath,
-                    fit: BoxFit.contain,
+                  _NtiLayeredArtwork(
+                    outfit: widget.outfit,
                     filterQuality: FilterQuality.high,
                   ),
                   AnimatedBuilder(
@@ -160,6 +155,38 @@ class _AnimatedNtiPreviewState extends State<AnimatedNtiPreview>
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NtiLayeredArtwork extends StatelessWidget {
+  const _NtiLayeredArtwork({
+    required this.outfit,
+    this.filterQuality = FilterQuality.medium,
+  });
+
+  final NtiOutfit outfit;
+  final FilterQuality filterQuality;
+
+  @override
+  Widget build(BuildContext context) {
+    final overlayPath = outfit.flutterOverlayAssetPath;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.asset(
+          NtiOutfit.flutterBodyAssetPath,
+          fit: BoxFit.contain,
+          filterQuality: filterQuality,
+        ),
+        if (overlayPath != null)
+          Image.asset(
+            overlayPath,
+            fit: BoxFit.contain,
+            filterQuality: filterQuality,
+          ),
+      ],
     );
   }
 }
