@@ -86,6 +86,11 @@ Base local: commit `9ddda1e` del Sprint 1.
 | AZ-114 | Crear vista previa reutilizable de NTI animado | ✅ Terminado | AZ-113 |
 | AZ-115 | Añadir microinteracciones a tienda y personalización | ✅ Terminado | AZ-114 |
 | AZ-116 | Validar rendimiento de las animaciones | 🟡 En progreso | AZ-115 |
+| AZ-118 | Crear sistema visual compartido de tienda | ✅ Terminado | Mockups aprobados |
+| AZ-119 | Recrear pantalla de tienda de trajes y fondos | ✅ Terminado | AZ-118 |
+| AZ-120 | Recrear pantalla de personalización e inventario | ✅ Terminado | AZ-118 |
+| AZ-121 | Conservar animaciones en la recreación visual | ✅ Terminado | AZ-119 y AZ-120 |
+| AZ-122 | Validar diseño responsive en móvil y web | ✅ Terminado | AZ-121 |
 
 ### Avance del Sprint 2
 
@@ -97,6 +102,12 @@ Base local: commit `9ddda1e` del Sprint 1.
   parpadeo, mirada, habla, cambios animados y microinteracciones.
 - Los artículos equipados actualizan a NTI y el fondo de la habitación al
   cerrar la tienda.
+- Tienda y Personalización recrean los mockups aprobados con un sistema visual
+  compartido, catálogo responsive y componentes reales de Flutter.
+- La recreación conserva la respiración, el parpadeo, la mirada, el habla y las
+  reacciones de NTI; no utiliza capturas estáticas como interfaz.
+- El diseño fue revisado en una ventana móvil de 390 × 844 y en Flutter Web sin
+  errores de consola ni desbordamientos visibles.
 - Los precios actuales son provisionales hasta que el equipo cierre `AZ-103`.
 - La tienda utiliza temporalmente `InMemoryStoreRepository`; el guardado entre
   reinicios se implementará en `AZ-108`.
