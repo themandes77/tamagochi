@@ -4,10 +4,26 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 
+enum _PlatformType { normal, moving, dissolving }
+
 class _Platform {
   double x, y, w, h;
   bool scored;
-  _Platform(this.x, this.y, this.w, this.h) : scored = false;
+  _PlatformType type;
+  double vx;
+  double baseX;
+  double range;
+  bool dissolving;
+  double dissolveTimer;
+
+  _Platform(this.x, this.y, this.w, this.h,
+      {this.type = _PlatformType.normal})
+      : scored = false,
+        vx = 0,
+        baseX = x,
+        range = 0,
+        dissolving = false,
+        dissolveTimer = 0;
 }
 
 class TrepaNubes extends PositionComponent
@@ -22,6 +38,11 @@ class TrepaNubes extends PositionComponent
   static const double platGap = 60;
   static const double gapVariance = 20;
   static const double baseScrollSpeed = 80;
+  static const double movingRange = 60;
+  static const double movingSpeed = 70;
+  static const double dissolveTime = 0.45;
+  static const double movingChance = 0.15;
+  static const double dissolveChance = 0.15;
 
   double get _currentGravity => baseGravity + (score / 10) * 20;
   double get _currentPlatW => max(minPlatW, basePlatW - (score / 8) * 2);
@@ -37,6 +58,7 @@ class TrepaNubes extends PositionComponent
   double _dragX = 0;
   final Random _random = Random();
   final List<_Platform> _platforms = [];
+  _Platform? _standingOn;
   Sprite? _ntiSprite;
 
   @override
@@ -47,29 +69,78 @@ class TrepaNubes extends PositionComponent
     _platforms.add(_Platform(size.x / 2 - basePlatW / 2, size.y - 40, basePlatW, platH));
 
     for (int i = 0; i < 12; i++) {
-      _addPlatformAbove(size.y - 40 - (i + 1) * platGap);
+      _addPlatformAbove(size.y - 40 - (i + 1) * platGap, randomType: i >= 3);
     }
 
     px = size.x / 2 - playerW / 2;
     py = size.y - 40 - playerH;
   }
 
-  void _addPlatformAbove(double referenceY) {
+  _Platform _makePlatform(double x, double y, double w, {bool randomType = true}) {
+    if (!randomType) {
+      return _Platform(x, y, w, platH);
+    }
+    final roll = _random.nextDouble();
+    if (roll < dissolveChance) {
+      return _Platform(x, y, w, platH, type: _PlatformType.dissolving);
+    }
+    if (roll < dissolveChance + movingChance) {
+      final maxRange = min(movingRange, (size.x - w) / 2);
+      final safeX = maxRange * 2 > size.x - w
+          ? (size.x - w) / 2
+          : maxRange + _random.nextDouble() * (size.x - w - maxRange * 2);
+      final p = _Platform(safeX, y, w, platH, type: _PlatformType.moving);
+      p.vx = (movingSpeed * 0.6 + _random.nextDouble() * movingSpeed * 0.8) *
+          (_random.nextBool() ? 1 : -1);
+      p.range = maxRange;
+      return p;
+    }
+    return _Platform(x, y, w, platH);
+  }
+
+  void _addPlatformAbove(double referenceY, {bool randomType = true}) {
     final w = _currentPlatW;
     double x = _random.nextDouble() * (size.x - w);
     double y = referenceY - _random.nextDouble() * gapVariance;
-    _platforms.add(_Platform(x, y, w, platH));
+    _platforms.add(_makePlatform(x, y, w, randomType: randomType));
   }
 
   @override
   void update(double dt) {
     if (gameOver || !_started) return;
 
+    for (final plat in _platforms) {
+      if (plat.type == _PlatformType.moving) {
+        final prevX = plat.x;
+        plat.x += plat.vx * dt;
+        if (plat.x < plat.baseX - plat.range) {
+          plat.x = plat.baseX - plat.range;
+          plat.vx = -plat.vx;
+        } else if (plat.x > plat.baseX + plat.range) {
+          plat.x = plat.baseX + plat.range;
+          plat.vx = -plat.vx;
+        }
+        plat.x = plat.x.clamp(0.0, size.x - plat.w);
+        if (identical(_standingOn, plat) &&
+            py + playerH >= plat.y - 6 &&
+            py + playerH <= plat.y + 6 &&
+            px + playerW > plat.x &&
+            px < plat.x + plat.w) {
+          px = (px + (plat.x - prevX)).clamp(0, size.x - playerW);
+          py = plat.y - playerH;
+        }
+      }
+      if (plat.type == _PlatformType.dissolving && plat.dissolving) {
+        plat.dissolveTimer -= dt;
+      }
+    }
+
     pvy += _currentGravity * dt;
 
     py += pvy * dt;
 
     if (pvy > 0) {
+      _standingOn = null;
       final playerBottom = py + playerH;
       for (final plat in _platforms) {
         if (playerBottom <= plat.y + 2 &&
@@ -78,6 +149,11 @@ class TrepaNubes extends PositionComponent
             px < plat.x + plat.w) {
           py = plat.y - playerH;
           pvy = jumpVel;
+          _standingOn = plat;
+          if (plat.type == _PlatformType.dissolving && !plat.dissolving) {
+            plat.dissolving = true;
+            plat.dissolveTimer = dissolveTime;
+          }
           if (!plat.scored) {
             score++;
             plat.scored = true;
@@ -102,8 +178,15 @@ class TrepaNubes extends PositionComponent
       }
     }
 
-    final bottomWorldY = camY + size.y + 100;
-    _platforms.removeWhere((p) => p.y > bottomWorldY);
+    _platforms.removeWhere((p) {
+      final remove = p.y > camY + size.y ||
+          p.y + p.h < camY ||
+          (p.type == _PlatformType.dissolving && p.dissolving && p.dissolveTimer <= 0);
+      if (remove && identical(_standingOn, p)) {
+        _standingOn = null;
+      }
+      return remove;
+    });
 
     if (py - camY > size.y + 50) {
       gameOver = true;
@@ -124,10 +207,41 @@ class TrepaNubes extends PositionComponent
       final screenY = plat.y - camY;
       if (screenY < -plat.h || screenY > size.y) continue;
 
+      if (plat.type == _PlatformType.dissolving && plat.dissolving) {
+        final progress = (plat.dissolveTimer / dissolveTime).clamp(0.0, 1.0);
+        final h = plat.h * progress;
+        if (h <= 0) continue;
+        final y = screenY + (plat.h - h);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromLTWH(plat.x, y, plat.w, h),
+            const Radius.circular(5),
+          ),
+          Paint()..color = const Color(0xFFe64a19).withOpacity(0.6 + 0.4 * progress),
+        );
+        continue;
+      }
+
+      Color c1, c2;
+      switch (plat.type) {
+        case _PlatformType.moving:
+          c1 = const Color(0xFFa5d8ff);
+          c2 = const Color(0xFF4d9de0);
+          break;
+        case _PlatformType.dissolving:
+          c1 = const Color(0xFFffcc80);
+          c2 = const Color(0xFFe64a19);
+          break;
+        case _PlatformType.normal:
+          c1 = const Color(0xFFe0e0e0);
+          c2 = const Color(0xFF90a4ae);
+          break;
+      }
+
       final gradient2 = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [const Color(0xFFe0e0e0), const Color(0xFF90a4ae)],
+        colors: [c1, c2],
       );
       final rrect = RRect.fromRectAndRadius(
         Rect.fromLTWH(plat.x, screenY, plat.w, plat.h),
