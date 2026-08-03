@@ -20,7 +20,7 @@ void main() {
     expect(NtiOutfit.techno.overlayAssetPath, 'outfits/nti_techno_overlay.png');
     expect(
       NtiOutfit.adventurer.overlayAssetPath,
-      'outfits/nti_adventurer_overlay_v2.png',
+      'outfits/nti_adventurer_overlay_v4.png',
     );
     expect(
       NtiOutfit.values.map((outfit) => outfit.id).toSet(),

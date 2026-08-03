@@ -13,7 +13,7 @@ reutiliza sin cambios en todos los trajes:
 - Rostro vacío y liso: los ojos y la boca se dibujan y animan desde Flame.
 
 Los archivos `nti_anniversary_overlay.png`, `nti_techno_overlay.png` y
-`nti_adventurer_overlay_v2.png` contienen únicamente ropa y accesorios sobre un
+`nti_adventurer_overlay_v4.png` contienen únicamente ropa y accesorios sobre un
 fondo transparente. La variante Original no utiliza overlay.
 
 Flutter y Flame componen siempre las capas en este orden:

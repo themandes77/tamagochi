@@ -96,6 +96,7 @@ Base local: commit `9ddda1e` del Sprint 1.
 | AZ-125 | Separar el cuerpo maestro de los overlays de vestuario | ✅ Terminado | AZ-123 |
 | AZ-126 | Validar que todas las skins reutilicen el mismo cuerpo | ✅ Terminado | AZ-125 |
 | AZ-127 | Rehacer el overlay Aventurero con geometría bloqueada | ✅ Terminado | AZ-125 |
+| AZ-128 | Unificar y ajustar el traje Aventurero al área facial segura | ✅ Terminado | AZ-127 |
 
 ### Avance del Sprint 2
 
@@ -121,6 +122,8 @@ Base local: commit `9ddda1e` del Sprint 1.
 - El cuerpo maestro tiene un diámetro exacto de 864 × 864 píxeles. El overlay
   de Aventurero se extrajo sobre el mismo lienzo de 1254 × 1254, sin incluir
   cuerpo, rostro ni antena y sin transformar el cuerpo maestro.
+- El overlay integral de Aventurero mantiene completamente libre la zona facial
+  entre `x=350..904` y `y=430..670` y se compone sin transformaciones.
 - Los precios actuales son provisionales hasta que el equipo cierre `AZ-103`.
 - La tienda utiliza temporalmente `InMemoryStoreRepository`; el guardado entre
   reinicios se implementará en `AZ-108`.

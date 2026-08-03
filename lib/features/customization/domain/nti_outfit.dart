@@ -22,7 +22,7 @@ enum NtiOutfit {
   adventurer(
     id: 'adventurer',
     displayName: 'Aventurero',
-    overlayAssetPath: 'outfits/nti_adventurer_overlay_v2.png',
+    overlayAssetPath: 'outfits/nti_adventurer_overlay_v4.png',
     eyeCenterY: 0.45,
     mouthCenterY: 0.50,
   );
