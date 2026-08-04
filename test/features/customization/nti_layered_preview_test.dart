@@ -4,9 +4,7 @@ import 'package:flutter_application_1/features/customization/presentation/animat
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('every preview starts with the exact same master body', (
-    tester,
-  ) async {
+  testWidgets('integrated outfits render as one image', (tester) async {
     for (final outfit in NtiOutfit.values) {
       await tester.pumpWidget(
         MaterialApp(home: NtiStaticPreview(outfit: outfit)),
@@ -17,13 +15,7 @@ void main() {
           .map((image) => (image.image as AssetImage).assetName)
           .toList();
 
-      expect(assetNames.first, NtiOutfit.flutterBodyAssetPath);
-      expect(
-        assetNames.skip(1),
-        outfit.flutterOverlayAssetPath == null
-            ? isEmpty
-            : equals([outfit.flutterOverlayAssetPath]),
-      );
+      expect(assetNames, [outfit.flutterArtworkAssetPath]);
     }
   });
 }

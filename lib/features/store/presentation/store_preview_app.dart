@@ -6,27 +6,39 @@ import 'package:flutter_application_1/features/customization/domain/theme_option
 import 'package:flutter_application_1/features/customization/presentation/animated_nti_preview.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
+import 'package:flutter_application_1/features/store/presentation/store_back_button.dart';
+import 'package:flutter_application_1/features/store/presentation/store_catalog_hint.dart';
+import 'package:flutter_application_1/features/store/presentation/store_catalog_panel.dart';
+import 'package:flutter_application_1/features/store/presentation/store_category_tabs.dart';
+import 'package:flutter_application_1/features/store/presentation/store_coin_balance.dart';
+import 'package:flutter_application_1/features/store/presentation/store_item_action_button_frame.dart';
+import 'package:flutter_application_1/features/store/presentation/store_item_card_frame.dart';
+import 'package:flutter_application_1/features/store/presentation/store_showcase_room.dart';
 import 'package:flutter_application_1/features/store/presentation/store_visual_tokens.dart';
 
 ThemeData storeThemeFrom(ThemeOption _) {
   return ThemeData(
     useMaterial3: true,
+    fontFamily: StoreVisualTokens.fontFamily,
     colorScheme: ColorScheme.fromSeed(
       seedColor: StoreVisualTokens.purple,
       brightness: Brightness.light,
       surface: StoreVisualTokens.cream,
     ),
-    scaffoldBackgroundColor: StoreVisualTokens.lavender,
+    scaffoldBackgroundColor: StoreVisualTokens.storeBackdrop,
     textTheme: const TextTheme(
       headlineSmall: TextStyle(
         color: StoreVisualTokens.purpleDark,
-        fontWeight: FontWeight.w900,
+        fontWeight: FontWeight.w700,
       ),
       titleMedium: TextStyle(
         color: StoreVisualTokens.purpleDark,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
       ),
-      bodyMedium: TextStyle(color: StoreVisualTokens.purpleDark),
+      bodyMedium: TextStyle(
+        color: StoreVisualTokens.purpleDark,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 }
@@ -62,131 +74,204 @@ class StoreScreen extends StatefulWidget {
   State<StoreScreen> createState() => _StoreScreenState();
 }
 
+class _StoreLayoutSpec {
+  const _StoreLayoutSpec({
+    required this.catalogInset,
+    required this.columnCount,
+    required this.cardSpacing,
+    required this.panelPadding,
+    required this.baseCardHeight,
+  });
+
+  static const maxContentWidth = 960.0;
+
+  factory _StoreLayoutSpec.fromWidth(double width) {
+    final effectiveWidth = math.min(width, maxContentWidth);
+    if (effectiveWidth < 360) {
+      return const _StoreLayoutSpec(
+        catalogInset: 4,
+        columnCount: 2,
+        cardSpacing: 6,
+        panelPadding: 14,
+        baseCardHeight: 190,
+      );
+    }
+    if (effectiveWidth < 760) {
+      return const _StoreLayoutSpec(
+        catalogInset: 6,
+        columnCount: 2,
+        cardSpacing: 12,
+        panelPadding: 22,
+        baseCardHeight: 205,
+      );
+    }
+    return const _StoreLayoutSpec(
+      catalogInset: 12,
+      columnCount: 4,
+      cardSpacing: 12,
+      panelPadding: 22,
+      baseCardHeight: 205,
+    );
+  }
+
+  final double catalogInset;
+  final int columnCount;
+  final double cardSpacing;
+  final double panelPadding;
+  final double baseCardHeight;
+
+  double cardHeightFor(ShopItemKind kind) {
+    return baseCardHeight + (kind == ShopItemKind.theme ? 8 : 0);
+  }
+
+  double previewSizeFor(double cardWidth) {
+    return (cardWidth * 0.8).clamp(106.0, 150.0);
+  }
+}
+
 class _StoreScreenState extends State<StoreScreen> {
-  var _selectedPage = 0;
   var _selectedKind = ShopItemKind.outfit;
   String? _previewItemId;
 
   StoreController get controller => widget.controller;
-  bool get _isStorePage => _selectedPage == 0;
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = controller
-        .itemsFor(_selectedKind)
-        .where((item) => _isStorePage || controller.isOwned(item))
-        .toList(growable: false);
+    final visibleItems = controller.itemsFor(_selectedKind);
     final previewItem = _findPreviewItem();
     final previewOutfit = _outfitFor(previewItem) ?? controller.selectedOutfit;
     final previewTheme = _themeFor(previewItem) ?? controller.selectedTheme;
 
     return Scaffold(
-      appBar: _StoreHeader(
-        isStorePage: _isStorePage,
-        coins: controller.coins,
-        onBack: _handleBack,
-      ),
+      appBar: _StoreHeader(coins: controller.coins, onBack: _handleBack),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final horizontalPadding = constraints.maxWidth >= 720 ? 28.0 : 16.0;
-          final columnCount = constraints.maxWidth >= 760 ? 4 : 2;
-          final cardHeight = _selectedKind == ShopItemKind.outfit
-              ? 230.0
-              : 238.0;
+          final layout = _StoreLayoutSpec.fromWidth(constraints.maxWidth);
 
           return CustomScrollView(
-            key: ValueKey('store_page_$_selectedPage'),
+            key: const ValueKey('store_page'),
             slivers: [
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontalPadding,
-                  14,
-                  horizontalPadding,
-                  12,
-                ),
+                padding: EdgeInsets.zero,
                 sliver: SliverToBoxAdapter(
-                  child: _CustomizationPreview(
-                    outfit: previewOutfit,
-                    theme: previewTheme,
-                    message: previewItem == null
-                        ? _isStorePage
-                              ? '¡Elige un estilo!'
-                              : '¡Vamos a personalizar!'
-                        : '¡${previewItem.name} me queda genial!',
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontalPadding,
-                  0,
-                  horizontalPadding,
-                  14,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: _CategoryTabs(
-                    selectedKind: _selectedKind,
-                    onSelected: (kind) {
-                      setState(() {
-                        _selectedKind = kind;
-                        _previewItemId = null;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              if (visibleItems.isEmpty)
-                const SliverToBoxAdapter(child: _EmptyInventory())
-              else
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columnCount,
-                      mainAxisExtent: cardHeight,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: _StoreLayoutSpec.maxContentWidth,
+                      ),
+                      child: _CustomizationPreview(
+                        outfit: previewOutfit,
+                        theme: previewTheme,
+                        useStoreRoom: _selectedKind == ShopItemKind.outfit,
+                        message: previewItem == null
+                            ? '¡Elige un estilo!'
+                            : '¡${previewItem.name} me queda genial!',
+                      ),
                     ),
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = visibleItems[index];
-                      return _StoreItemCard(
-                        item: item,
-                        controller: controller,
-                        isStorePage: _isStorePage,
-                        selected: item.id == _previewItemId,
-                        onSelected: () {
-                          setState(() => _previewItemId = item.id);
-                        },
-                        onAction: () => _handleItemAction(item),
-                      );
-                    }, childCount: visibleItems.length),
-                  ),
-                ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontalPadding,
-                  14,
-                  horizontalPadding,
-                  0,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: _CatalogHint(
-                    selectedKind: _selectedKind,
-                    isStorePage: _isStorePage,
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontalPadding,
-                  12,
-                  horizontalPadding,
-                  28,
+              SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _StoreLayoutSpec.maxContentWidth,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.catalogInset,
+                      ),
+                      child: Transform.translate(
+                        offset: const Offset(0, -6),
+                        child: StoreCategoryTabs(
+                          selectedKind: _selectedKind,
+                          onSelected: (kind) {
+                            setState(() {
+                              _selectedKind = kind;
+                              _previewItemId = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                sliver: SliverToBoxAdapter(
-                  child: _PageSwitchButton(
-                    isStorePage: _isStorePage,
-                    onPressed: _switchPage,
+              ),
+              SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _StoreLayoutSpec.maxContentWidth,
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: layout.catalogInset,
+                      ),
+                      child: Transform.translate(
+                        offset: const Offset(0, -14),
+                        child: StoreCatalogPanel(
+                          padding: EdgeInsets.fromLTRB(
+                            layout.panelPadding,
+                            layout.panelPadding,
+                            layout.panelPadding,
+                            math.max(16, layout.panelPadding - 2),
+                          ),
+                          child: Column(
+                            children: [
+                              if (visibleItems.isEmpty)
+                                const _EmptyInventory()
+                              else
+                                LayoutBuilder(
+                                  builder: (context, gridConstraints) {
+                                    final itemWidth =
+                                        (gridConstraints.maxWidth -
+                                            layout.cardSpacing *
+                                                (layout.columnCount - 1)) /
+                                        layout.columnCount;
+                                    final compactCard = itemWidth < 150;
+
+                                    return Wrap(
+                                      spacing: layout.cardSpacing,
+                                      runSpacing: layout.cardSpacing,
+                                      children: [
+                                        for (final item in visibleItems)
+                                          SizedBox(
+                                            width: itemWidth,
+                                            height: layout.cardHeightFor(
+                                              _selectedKind,
+                                            ),
+                                            child: _StoreItemCard(
+                                              item: item,
+                                              controller: controller,
+                                              compact: compactCard,
+                                              previewSize: layout
+                                                  .previewSizeFor(itemWidth),
+                                              selected:
+                                                  item.id == _previewItemId,
+                                              onSelected: () {
+                                                setState(
+                                                  () =>
+                                                      _previewItemId = item.id,
+                                                );
+                                              },
+                                              onAction: () =>
+                                                  _handleItemAction(item),
+                                            ),
+                                          ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              const SizedBox(height: 10),
+                              StoreCatalogHint(
+                                selectedKind: _selectedKind,
+                                isStorePage: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -197,20 +282,7 @@ class _StoreScreenState extends State<StoreScreen> {
     );
   }
 
-  void _handleBack() {
-    if (!_isStorePage) {
-      _switchPage();
-      return;
-    }
-    widget.onClose?.call();
-  }
-
-  void _switchPage() {
-    setState(() {
-      _selectedPage = _isStorePage ? 1 : 0;
-      _previewItemId = null;
-    });
-  }
+  void _handleBack() => widget.onClose?.call();
 
   ShopItem? _findPreviewItem() {
     final id = _previewItemId;
@@ -290,125 +362,72 @@ class _StoreScreenState extends State<StoreScreen> {
 }
 
 class _StoreHeader extends StatelessWidget implements PreferredSizeWidget {
-  const _StoreHeader({
-    required this.isStorePage,
-    required this.coins,
-    required this.onBack,
-  });
+  static const _storePanelAssetPath =
+      'assets/images/ui/store_header_panel_v1.png';
+  static const _storeTitleAssetPath = 'assets/images/ui/store_title_v1.png';
 
-  final bool isStorePage;
+  const _StoreHeader({required this.coins, required this.onBack});
+
   final int coins;
   final VoidCallback onBack;
 
   @override
-  Size get preferredSize => const Size.fromHeight(78);
+  Size get preferredSize => const Size.fromHeight(104);
 
   @override
   Widget build(BuildContext context) {
-    final title = isStorePage ? 'TIENDA' : 'PERSONALIZACIÓN';
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth < 370;
+    final leadingWidth = compact ? 68.0 : 84.0;
+    final reservedForSides = compact ? 168.0 : 208.0;
+    final titleWidth = (screenWidth - reservedForSides).clamp(104.0, 212.0);
 
     return AppBar(
       toolbarHeight: preferredSize.height,
       centerTitle: true,
       automaticallyImplyLeading: false,
-      backgroundColor: isStorePage
-          ? StoreVisualTokens.purple
-          : StoreVisualTokens.cream,
+      backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: Border(
-        bottom: BorderSide(
-          color: isStorePage
-              ? StoreVisualTokens.gold
-              : StoreVisualTokens.purpleLight,
-          width: 3,
-        ),
+      titleSpacing: 0,
+      flexibleSpace: Image.asset(
+        _storePanelAssetPath,
+        fit: BoxFit.fill,
+        filterQuality: FilterQuality.high,
       ),
-      leadingWidth: 72,
+      leadingWidth: leadingWidth,
       leading: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-        child: _RoundHeaderButton(
+        padding: compact
+            ? const EdgeInsets.fromLTRB(6, 25, 6, 25)
+            : const EdgeInsets.fromLTRB(12, 20, 8, 20),
+        child: StoreBackButton(
           key: const ValueKey('store_close_button'),
-          tooltip: isStorePage ? 'Cerrar tienda' : 'Volver a la tienda',
-          isStorePage: isStorePage,
+          tooltip: 'Cerrar tienda',
+          size: compact ? 54 : 64,
           onPressed: onBack,
         ),
       ),
-      title: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          title,
-          maxLines: 1,
-          style: TextStyle(
-            color: isStorePage
-                ? StoreVisualTokens.cream
-                : StoreVisualTokens.purple,
-            fontSize: isStorePage ? 32 : 27,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1,
-            shadows: isStorePage
-                ? const [
-                    Shadow(
-                      color: StoreVisualTokens.goldDark,
-                      blurRadius: 2,
-                      offset: Offset(0, 2),
-                    ),
-                  ]
-                : null,
+      title: Semantics(
+        label: 'TIENDA',
+        image: true,
+        child: SizedBox(
+          width: titleWidth,
+          height: compact ? 50 : 58,
+          child: Image.asset(
+            _storeTitleAssetPath,
+            key: const ValueKey('store_title_asset'),
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            excludeFromSemantics: true,
           ),
         ),
       ),
       actions: [
-        if (isStorePage)
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _CoinBalance(coins: coins),
-          )
-        else
-          const SizedBox(width: 72),
+        Padding(
+          padding: EdgeInsets.only(right: compact ? 6 : 12),
+          child: StoreCoinBalance(coins: coins, compact: compact),
+        ),
       ],
-    );
-  }
-}
-
-class _RoundHeaderButton extends StatelessWidget {
-  const _RoundHeaderButton({
-    required this.tooltip,
-    required this.isStorePage,
-    required this.onPressed,
-    super.key,
-  });
-
-  final String tooltip;
-  final bool isStorePage;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: isStorePage
-            ? StoreVisualTokens.cream
-            : StoreVisualTokens.lavender,
-        shape: CircleBorder(
-          side: BorderSide(
-            color: isStorePage
-                ? StoreVisualTokens.gold
-                : StoreVisualTokens.purple,
-            width: 2.5,
-          ),
-        ),
-        elevation: 3,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onPressed,
-          child: Icon(
-            Icons.arrow_back_rounded,
-            color: StoreVisualTokens.purple,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -417,66 +436,94 @@ class _CustomizationPreview extends StatelessWidget {
   const _CustomizationPreview({
     required this.outfit,
     required this.theme,
+    required this.useStoreRoom,
     required this.message,
   });
 
   final NtiOutfit outfit;
   final ThemeOption theme;
+  final bool useStoreRoom;
   final String message;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final previewHeight = (constraints.maxWidth * 0.57).clamp(210.0, 330.0);
-        final ntiSize = math.min(previewHeight * 0.84, 236.0);
+        final compact = constraints.maxWidth < 360;
+        final previewHeight = (constraints.maxWidth * 0.5).clamp(
+          compact ? 180.0 : 210.0,
+          330.0,
+        );
+        final ntiSize = useStoreRoom
+            ? math.min(previewHeight * 0.99, 270.0)
+            : math.min(previewHeight * 0.84, 236.0);
 
         return Container(
           height: previewHeight,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(StoreVisualTokens.panelRadius),
-            border: Border.all(color: StoreVisualTokens.purple, width: 3),
-            boxShadow: const [StoreVisualTokens.softShadow],
+            borderRadius: BorderRadius.circular(
+              useStoreRoom ? 0 : StoreVisualTokens.panelRadius,
+            ),
+            border: useStoreRoom
+                ? null
+                : Border.all(color: StoreVisualTokens.purple, width: 3),
+            boxShadow: useStoreRoom
+                ? null
+                : const [StoreVisualTokens.softShadow],
           ),
           child: Stack(
             fit: StackFit.expand,
             children: [
               AnimatedSwitcher(
                 duration: StoreVisualTokens.backgroundTransition,
-                child: _ThemeBackdrop(key: ValueKey(theme.id), theme: theme),
+                child: useStoreRoom
+                    ? const StoreShowcaseRoom(
+                        key: ValueKey('store_showcase_room'),
+                      )
+                    : _ThemeBackdrop(key: ValueKey(theme.id), theme: theme),
               ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Color(0x5C261437)],
-                    stops: [0.58, 1],
+              if (!useStoreRoom)
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Color(0x5C261437)],
+                      stops: [0.58, 1],
+                    ),
                   ),
                 ),
+              Align(
+                alignment: Alignment(0, useStoreRoom ? 0.53 : 0.68),
+                child: _NtiContactShadow(width: ntiSize * 0.6),
               ),
               Align(
-                alignment: const Alignment(0, 0.22),
+                alignment: Alignment(0, useStoreRoom ? 0.05 : 0.22),
                 child: AnimatedNtiPreview(
                   outfit: outfit,
                   message: message,
                   size: ntiSize,
                 ),
               ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: AnimatedSwitcher(
-                  duration: StoreVisualTokens.normal,
-                  child: _SpeechPill(key: ValueKey(message), message: message),
+              if (!useStoreRoom)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: AnimatedSwitcher(
+                    duration: StoreVisualTokens.normal,
+                    child: _SpeechPill(
+                      key: ValueKey(message),
+                      message: message,
+                    ),
+                  ),
                 ),
-              ),
-              Positioned(
-                left: 12,
-                bottom: 10,
-                child: _EquippedLabel(outfit: outfit, theme: theme),
-              ),
+              if (!useStoreRoom)
+                Positioned(
+                  left: 12,
+                  bottom: 10,
+                  child: _EquippedLabel(outfit: outfit, theme: theme),
+                ),
             ],
           ),
         );
@@ -506,8 +553,9 @@ class _SpeechPill extends StatelessWidget {
         textAlign: TextAlign.center,
         style: const TextStyle(
           color: StoreVisualTokens.purpleDark,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           fontSize: 12,
+          shadows: [StoreVisualTokens.textShadow],
         ),
       ),
     );
@@ -533,8 +581,9 @@ class _EquippedLabel extends StatelessWidget {
         '${outfit.displayName} · ${theme.displayName}',
         style: const TextStyle(
           color: Colors.white,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           fontSize: 12,
+          shadows: [StoreVisualTokens.textShadow],
         ),
       ),
     );
@@ -572,98 +621,21 @@ class _ThemeBackdrop extends StatelessWidget {
   }
 }
 
-class _CategoryTabs extends StatelessWidget {
-  const _CategoryTabs({required this.selectedKind, required this.onSelected});
+class _NtiContactShadow extends StatelessWidget {
+  const _NtiContactShadow({required this.width});
 
-  final ShopItemKind selectedKind;
-  final ValueChanged<ShopItemKind> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: StoreVisualTokens.purpleLight,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: const [StoreVisualTokens.softShadow],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _CategoryTab(
-              label: 'TRAJES',
-              icon: Icons.checkroom_rounded,
-              selected: selectedKind == ShopItemKind.outfit,
-              onTap: () => onSelected(ShopItemKind.outfit),
-            ),
-          ),
-          const SizedBox(width: 5),
-          Expanded(
-            child: _CategoryTab(
-              label: 'FONDOS',
-              icon: Icons.image_rounded,
-              selected: selectedKind == ShopItemKind.theme,
-              onTap: () => onSelected(ShopItemKind.theme),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryTab extends StatelessWidget {
-  const _CategoryTab({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: StoreVisualTokens.normal,
-      decoration: BoxDecoration(
-        color: selected ? StoreVisualTokens.cream : Colors.transparent,
-        borderRadius: BorderRadius.circular(19),
-        border: selected
-            ? Border.all(color: StoreVisualTokens.gold, width: 2)
-            : null,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          key: ValueKey('category_${label.toLowerCase()}'),
-          borderRadius: BorderRadius.circular(19),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: StoreVisualTokens.purple, size: 23),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    style: const TextStyle(
-                      color: StoreVisualTokens.purpleDark,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return IgnorePointer(
+      child: Container(
+        width: width,
+        height: math.max(8, width * 0.11),
+        decoration: BoxDecoration(
+          color: const Color(0x10000000),
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [StoreVisualTokens.contactShadow],
         ),
       ),
     );
@@ -674,7 +646,8 @@ class _StoreItemCard extends StatelessWidget {
   const _StoreItemCard({
     required this.item,
     required this.controller,
-    required this.isStorePage,
+    required this.compact,
+    required this.previewSize,
     required this.selected,
     required this.onSelected,
     required this.onAction,
@@ -682,7 +655,8 @@ class _StoreItemCard extends StatelessWidget {
 
   final ShopItem item;
   final StoreController controller;
-  final bool isStorePage;
+  final bool compact;
+  final double previewSize;
   final bool selected;
   final VoidCallback onSelected;
   final VoidCallback onAction;
@@ -695,19 +669,8 @@ class _StoreItemCard extends StatelessWidget {
     return AnimatedScale(
       scale: selected ? 1 : 0.985,
       duration: StoreVisualTokens.quick,
-      child: AnimatedContainer(
-        duration: StoreVisualTokens.normal,
-        decoration: BoxDecoration(
-          color: StoreVisualTokens.cream,
-          borderRadius: BorderRadius.circular(StoreVisualTokens.cardRadius),
-          border: Border.all(
-            color: selected
-                ? StoreVisualTokens.purple
-                : StoreVisualTokens.creamStrong,
-            width: selected ? 3 : 1.5,
-          ),
-          boxShadow: const [StoreVisualTokens.softShadow],
-        ),
+      child: StoreItemCardFrame(
+        selected: selected,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -715,32 +678,47 @@ class _StoreItemCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(StoreVisualTokens.cardRadius),
             onTap: onSelected,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
+              padding: compact
+                  ? const EdgeInsets.fromLTRB(7, 7, 7, 7)
+                  : const EdgeInsets.fromLTRB(10, 10, 10, 5),
               child: Column(
                 children: [
                   Expanded(
-                    child: Center(
-                      child: _ItemPreview(item: item, controller: controller),
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minWidth: 0,
+                      minHeight: 0,
+                      maxWidth: previewSize,
+                      maxHeight: previewSize,
+                      child: SizedBox.square(
+                        dimension: previewSize,
+                        child: _ItemPreview(
+                          item: item,
+                          controller: controller,
+                          size: previewSize,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: compact ? 3 : 5),
                   Text(
                     item.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: StoreVisualTokens.purpleDark,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      fontSize: compact ? 15 : 20,
+                      shadows: const [StoreVisualTokens.textShadow],
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: compact ? 5 : 3),
                   _ItemActionButton(
                     item: item,
                     owned: owned,
                     equipped: equipped,
-                    isStorePage: isStorePage,
+                    compact: compact,
                     onPressed: equipped ? null : onAction,
                   ),
                 ],
@@ -754,23 +732,25 @@ class _StoreItemCard extends StatelessWidget {
 }
 
 class _ItemActionButton extends StatelessWidget {
+  static const _coinAssetPath = 'assets/images/ui/coin_star_v1.png';
+
   const _ItemActionButton({
     required this.item,
     required this.owned,
     required this.equipped,
-    required this.isStorePage,
+    required this.compact,
     required this.onPressed,
   });
 
   final ShopItem item;
   final bool owned;
   final bool equipped;
-  final bool isStorePage;
+  final bool compact;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final isPurchase = isStorePage && !owned;
+    final isPurchase = !owned;
     final label = equipped
         ? 'Equipado'
         : owned
@@ -781,11 +761,6 @@ class _ItemActionButton extends StatelessWidget {
     final foreground = isPurchase
         ? StoreVisualTokens.purpleDark
         : StoreVisualTokens.cream;
-    final colors = isPurchase
-        ? const [Color(0xFFFFE19B), Color(0xFFF4BB4C)]
-        : equipped
-        ? const [Color(0xFF8B5BC9), Color(0xFF6840A2)]
-        : const [Color(0xFF9A69D4), Color(0xFF7446B8)];
 
     return Semantics(
       button: true,
@@ -797,49 +772,57 @@ class _ItemActionButton extends StatelessWidget {
           key: ValueKey('store_action_${item.id}'),
           borderRadius: BorderRadius.circular(18),
           onTap: onPressed,
-          child: AnimatedContainer(
-            duration: StoreVisualTokens.quick,
+          child: SizedBox(
             width: double.infinity,
-            height: 38,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: colors),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isPurchase
-                    ? StoreVisualTokens.goldDark
-                    : StoreVisualTokens.purpleLight,
-                width: 1.5,
-              ),
-              boxShadow: isPurchase
-                  ? const [StoreVisualTokens.goldShadow]
-                  : null,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  equipped
-                      ? Icons.check_circle_rounded
-                      : owned
-                      ? Icons.checkroom_rounded
-                      : Icons.monetization_on_rounded,
-                  color: equipped ? const Color(0xFFB8F27E) : foreground,
-                  size: 20,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: foreground,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
+            height: compact ? 34 : 36,
+            child: StoreItemActionButtonFrame(
+              isPrice: isPurchase,
+              child: Padding(
+                padding: compact
+                    ? const EdgeInsets.fromLTRB(8, 4, 8, 6)
+                    : const EdgeInsets.fromLTRB(12, 5, 12, 7),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (!isPurchase) ...[
+                      Icon(
+                        equipped
+                            ? Icons.check_circle_rounded
+                            : Icons.checkroom_rounded,
+                        color: equipped ? const Color(0xFFB8F27E) : foreground,
+                        size: compact ? 18 : 20,
+                      ),
+                      SizedBox(width: compact ? 4 : 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: foreground,
+                          fontWeight: FontWeight.w700,
+                          fontSize: compact ? 13 : 18,
+                          height: 1,
+                          shadows: const [StoreVisualTokens.textShadow],
+                        ),
+                      ),
                     ),
-                  ),
+                    if (isPurchase && item.price > 0) ...[
+                      SizedBox(width: compact ? 4 : 7),
+                      Image.asset(
+                        _coinAssetPath,
+                        key: const ValueKey('store_item_price_coin_asset'),
+                        width: compact ? 20 : 23,
+                        height: compact ? 20 : 23,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        excludeFromSemantics: true,
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -849,10 +832,15 @@ class _ItemActionButton extends StatelessWidget {
 }
 
 class _ItemPreview extends StatelessWidget {
-  const _ItemPreview({required this.item, required this.controller});
+  const _ItemPreview({
+    required this.item,
+    required this.controller,
+    required this.size,
+  });
 
   final ShopItem item;
   final StoreController controller;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -889,8 +877,40 @@ class _ItemPreview extends StatelessWidget {
 
     final outfit = _findOutfit();
     return outfit == null
-        ? const SizedBox.square(dimension: 112)
-        : NtiStaticPreview(outfit: outfit, size: 118);
+        ? SizedBox.square(dimension: size)
+        : Transform.translate(
+            offset: const Offset(0, -8),
+            child: SizedBox.square(
+              dimension: size,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Align(
+                    alignment: const Alignment(0, 0.72),
+                    child: _NtiContactShadow(width: size * 0.58),
+                  ),
+                  Positioned.fill(
+                    child: OverflowBox(
+                      minWidth: 0,
+                      minHeight: 0,
+                      maxWidth: size,
+                      maxHeight: size,
+                      child: Transform(
+                        alignment: Alignment.center,
+                        transform: Matrix4.diagonal3Values(
+                          outfit.catalogPreviewScaleX,
+                          outfit.catalogPreviewScaleY,
+                          1,
+                        ),
+                        child: NtiStaticPreview(outfit: outfit, size: size),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
   }
 
   NtiOutfit? _findOutfit() {
@@ -909,154 +929,6 @@ class _ItemPreview extends StatelessWidget {
       }
     }
     return null;
-  }
-}
-
-class _CoinBalance extends StatelessWidget {
-  const _CoinBalance({required this.coins});
-
-  final int coins;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(
-          color: const Color(0xFF5F3691),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: StoreVisualTokens.gold, width: 2),
-          boxShadow: const [StoreVisualTokens.goldShadow],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: StoreVisualTokens.normal,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(scale: animation, child: child),
-                );
-              },
-              child: Text(
-                '$coins',
-                key: ValueKey(coins),
-                style: const TextStyle(
-                  color: StoreVisualTokens.cream,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            const Icon(
-              Icons.monetization_on_rounded,
-              color: Color(0xFFFFD967),
-              size: 21,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CatalogHint extends StatelessWidget {
-  const _CatalogHint({required this.selectedKind, required this.isStorePage});
-
-  final ShopItemKind selectedKind;
-  final bool isStorePage;
-
-  @override
-  Widget build(BuildContext context) {
-    final message = isStorePage
-        ? selectedKind == ShopItemKind.outfit
-              ? 'Los trajes cambian la apariencia de tu NTI.'
-              : 'Los fondos transforman la habitación de NTI.'
-        : 'Toca un artículo para verlo y equiparlo.';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xBFFFF8EA),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: StoreVisualTokens.creamStrong),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.star_rounded,
-            color: StoreVisualTokens.gold,
-            size: 22,
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: StoreVisualTokens.purpleDark,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PageSwitchButton extends StatelessWidget {
-  const _PageSwitchButton({required this.isStorePage, required this.onPressed});
-
-  final bool isStorePage;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: ValueKey(isStorePage ? 'open_inventory' : 'open_store'),
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(26),
-        child: Ink(
-          height: 58,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF9562CC), StoreVisualTokens.purple],
-            ),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: StoreVisualTokens.gold, width: 2),
-            boxShadow: const [StoreVisualTokens.softShadow],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                isStorePage
-                    ? Icons.inventory_2_rounded
-                    : Icons.storefront_rounded,
-                color: const Color(0xFFFFD967),
-                size: 27,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                isStorePage ? 'MIS ARTÍCULOS' : 'VOLVER A LA TIENDA',
-                style: const TextStyle(
-                  color: StoreVisualTokens.cream,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

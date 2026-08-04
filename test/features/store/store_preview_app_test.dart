@@ -1,10 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/features/customization/presentation/animated_nti_preview.dart';
+import 'package:flutter_application_1/features/customization/domain/theme_option.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/features/store/data/in_memory_store_repository.dart';
 import 'package:flutter_application_1/features/store/presentation/store_preview_app.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  const responsiveViewports = <Size>[
+    Size(320, 568),
+    Size(360, 640),
+    Size(390, 844),
+    Size(667, 375),
+    Size(844, 390),
+    Size(600, 960),
+    Size(1024, 768),
+    Size(1440, 900),
+  ];
+
+  test('store theme uses Fredoka typography', () {
+    final theme = storeThemeFrom(
+      const ThemeOption(
+        id: 'test',
+        displayName: 'Test',
+        backgroundAssetPath: null,
+        backgroundColorValue: 0xFFFFFFFF,
+        surfaceColorValue: 0xFFFFFFFF,
+        accentColorValue: 0xFFFFFFFF,
+      ),
+    );
+
+    expect(theme.textTheme.bodyMedium?.fontFamily, 'Fredoka');
+  });
+
   testWidgets('renders store balance and catalog', (tester) async {
     _useMobileViewport(tester);
     final controller = StoreController(repository: InMemoryStoreRepository());
@@ -12,7 +40,14 @@ void main() {
 
     await tester.pumpWidget(StorePreviewApp(controller: controller));
 
-    expect(find.text('TIENDA'), findsOneWidget);
+    expect(find.bySemanticsLabel('TIENDA'), findsOneWidget);
+    final titleImage = tester.widget<Image>(
+      find.byKey(const ValueKey('store_title_asset')),
+    );
+    expect(
+      (titleImage.image as AssetImage).assetName,
+      'assets/images/ui/store_title_v1.png',
+    );
     expect(find.text('200'), findsOneWidget);
     expect(find.text('TRAJES'), findsOneWidget);
     expect(find.text('Aniversario'), findsOneWidget);
@@ -25,26 +60,36 @@ void main() {
     expect(find.text('Fondo Aniversario'), findsOneWidget);
   });
 
-  testWidgets('opens the owned-items personalization screen', (tester) async {
+  testWidgets('does not render an owned-items section', (tester) async {
     _useMobileViewport(tester);
     final controller = StoreController(repository: InMemoryStoreRepository());
     await controller.initialize();
 
     await tester.pumpWidget(StorePreviewApp(controller: controller));
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('open_inventory')),
-      300,
+    expect(find.byKey(const ValueKey('open_inventory')), findsNothing);
+    expect(find.byKey(const ValueKey('open_store')), findsNothing);
+    expect(find.text('MIS ARTÍCULOS'), findsNothing);
+  });
+
+  testWidgets('all catalog NTI previews use the same base canvas', (
+    tester,
+  ) async {
+    _useMobileViewport(tester);
+    final controller = StoreController(repository: InMemoryStoreRepository());
+    await controller.initialize();
+
+    await tester.pumpWidget(StorePreviewApp(controller: controller));
+    await tester.drag(
+      find.byKey(const ValueKey('store_page')),
+      const Offset(0, -320),
     );
-    await tester.tap(find.byKey(const ValueKey('open_inventory')));
     await tester.pump();
 
-    expect(find.text('PERSONALIZACIÓN'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('open_store')),
-      300,
-    );
-    expect(find.byKey(const ValueKey('open_store')), findsOneWidget);
-    expect(find.text('Original'), findsWidgets);
+    final previews = tester
+        .widgetList<NtiStaticPreview>(find.byType(NtiStaticPreview))
+        .toList();
+    expect(previews, hasLength(4));
+    expect(previews.map((preview) => preview.size).toSet(), hasLength(1));
   });
 
   testWidgets('buys and equips a real outfit from the catalog', (tester) async {
@@ -73,10 +118,51 @@ void main() {
     expect(controller.equippedOutfitId, 'anniversary');
     expect(find.text('Equipado'), findsOneWidget);
   });
+
+  for (final viewport in responsiveViewports) {
+    testWidgets(
+      'renders without overflow at ${viewport.width.toInt()}x${viewport.height.toInt()}',
+      (tester) async {
+        _useViewport(tester, viewport);
+        final controller = StoreController(
+          repository: InMemoryStoreRepository(),
+        );
+        await controller.initialize();
+
+        await tester.pumpWidget(StorePreviewApp(controller: controller));
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.bySemanticsLabel('TIENDA'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.drag(
+          find.byKey(const ValueKey('store_page')),
+          const Offset(0, -160),
+        );
+        await tester.pump();
+
+        expect(find.text('TRAJES'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.drag(
+          find.byKey(const ValueKey('store_page')),
+          const Offset(0, -320),
+        );
+        await tester.pump();
+
+        expect(find.text('Aventurero'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 void _useMobileViewport(WidgetTester tester) {
-  tester.view.physicalSize = const Size(390, 844);
+  _useViewport(tester, const Size(390, 844));
+}
+
+void _useViewport(WidgetTester tester, Size size) {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(() {
     tester.view.resetPhysicalSize();

@@ -2,51 +2,63 @@ enum NtiOutfit {
   original(
     id: 'original',
     displayName: 'Original',
+    integratedAssetPath: 'outfits/nti_body_master.png',
     eyeCenterY: 0.43,
     mouthCenterY: 0.50,
+    catalogPreviewScaleX: 1,
+    catalogPreviewScaleY: 1,
   ),
   anniversary(
     id: 'anniversary',
     displayName: 'Aniversario',
-    overlayAssetPath: 'outfits/nti_anniversary_overlay.png',
+    integratedAssetPath: 'outfits/nti_anniversary_integrated_v1.png',
     eyeCenterY: 0.36,
     mouthCenterY: 0.44,
+    catalogPreviewScaleX: 0.969,
+    catalogPreviewScaleY: 1,
   ),
   techno(
     id: 'techno',
     displayName: 'Techno',
-    overlayAssetPath: 'outfits/nti_techno_overlay.png',
+    integratedAssetPath: 'outfits/nti_techno_integrated_v4.png',
     eyeCenterY: 0.45,
     mouthCenterY: 0.52,
+    catalogPreviewScaleX: 1,
+    catalogPreviewScaleY: 1,
   ),
   adventurer(
     id: 'adventurer',
     displayName: 'Aventurero',
-    overlayAssetPath: 'outfits/nti_adventurer_overlay_v4.png',
+    integratedAssetPath: 'outfits/nti_adventurer_integrated_v5.png',
     eyeCenterY: 0.45,
     mouthCenterY: 0.50,
+    catalogPreviewScaleX: 0.892,
+    catalogPreviewScaleY: 1,
   );
 
   const NtiOutfit({
     required this.id,
     required this.displayName,
-    this.overlayAssetPath,
+    required this.integratedAssetPath,
     required this.eyeCenterY,
     required this.mouthCenterY,
+    required this.catalogPreviewScaleX,
+    required this.catalogPreviewScaleY,
   });
 
   static const bodyAssetPath = 'outfits/nti_body_master.png';
 
   final String id;
   final String displayName;
-  final String? overlayAssetPath;
+  final String integratedAssetPath;
   final double eyeCenterY;
   final double mouthCenterY;
+  final double catalogPreviewScaleX;
+  final double catalogPreviewScaleY;
 
   static const flutterBodyAssetPath = 'assets/images/$bodyAssetPath';
 
-  String? get flutterOverlayAssetPath {
-    final path = overlayAssetPath;
-    return path == null ? null : 'assets/images/$path';
-  }
+  String get artworkAssetPath => integratedAssetPath;
+
+  String get flutterArtworkAssetPath => 'assets/images/$artworkAssetPath';
 }

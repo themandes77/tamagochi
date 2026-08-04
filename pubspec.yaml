@@ -63,10 +63,16 @@ flutter:
     - assets/images/
     - assets/images/backgrounds/
     - assets/images/outfits/
+    - assets/images/ui/
     - assets/Slimes/
     # - assets/images/Terrain/
     - assets/images/nti.png
     # - assets/slime/
+
+  fonts:
+    - family: Fredoka
+      fonts:
+        - asset: assets/fonts/Fredoka-Variable.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

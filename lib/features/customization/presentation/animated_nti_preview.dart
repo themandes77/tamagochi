@@ -170,23 +170,10 @@ class _NtiLayeredArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overlayPath = outfit.flutterOverlayAssetPath;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          NtiOutfit.flutterBodyAssetPath,
-          fit: BoxFit.contain,
-          filterQuality: filterQuality,
-        ),
-        if (overlayPath != null)
-          Image.asset(
-            overlayPath,
-            fit: BoxFit.contain,
-            filterQuality: filterQuality,
-          ),
-      ],
+    return Image.asset(
+      outfit.flutterArtworkAssetPath,
+      fit: BoxFit.contain,
+      filterQuality: filterQuality,
     );
   }
 }

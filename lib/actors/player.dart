@@ -25,7 +25,6 @@ class Nti extends PositionComponent with TapCallbacks {
   NtiOutfit outfit;
 
   late final SpriteComponent _body;
-  late final SpriteComponent _outfitLayer;
   late final NtiFace _face;
   late final NtiSpeechBubble _speechBubble;
   double _idleTime = 0;
@@ -53,7 +52,7 @@ class Nti extends PositionComponent with TapCallbacks {
 
   Future<void> wear(NtiOutfit newOutfit) async {
     outfit = newOutfit;
-    _outfitLayer.sprite = await _loadOutfitOverlay(newOutfit);
+    _body.sprite = await Sprite.load(newOutfit.artworkAssetPath);
     _face.outfit = newOutfit;
     say('¡Traje ${newOutfit.displayName} equipado!');
   }
@@ -68,24 +67,15 @@ class Nti extends PositionComponent with TapCallbacks {
     position = findGame()!.size / 2 + Vector2(0, 18);
 
     _body = SpriteComponent(
-      sprite: await Sprite.load(NtiOutfit.bodyAssetPath),
-      size: size,
-    );
-    _outfitLayer = SpriteComponent(
-      sprite: await _loadOutfitOverlay(outfit),
+      sprite: await Sprite.load(outfit.artworkAssetPath),
       size: size,
     );
     _face = NtiFace(size: size, outfit: outfit);
     _speechBubble = NtiSpeechBubble(position: Vector2((size.x - 244) / 2, -84));
 
-    addAll([_body, _outfitLayer, _face, _speechBubble]);
+    addAll([_body, _face, _speechBubble]);
     say('¡Hola! Soy NTI.', duration: 2.8);
     return super.onLoad();
-  }
-
-  Future<Sprite?> _loadOutfitOverlay(NtiOutfit selectedOutfit) {
-    final overlayPath = selectedOutfit.overlayAssetPath;
-    return overlayPath == null ? Future.value() : Sprite.load(overlayPath);
   }
 
   @override
