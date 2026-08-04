@@ -62,6 +62,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/backgrounds/
+    - assets/images/minigame-elements/
     - assets/images/ui/
     # - assets/images/Terrain/
     - assets/images/nti.png

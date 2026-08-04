@@ -17,14 +17,13 @@ class _Platform {
   bool dissolving;
   double dissolveTimer;
 
-  _Platform(this.x, this.y, this.w, this.h,
-      {this.type = _PlatformType.normal})
-      : scored = false,
-        vx = 0,
-        baseX = x,
-        range = 0,
-        dissolving = false,
-        dissolveTimer = 0;
+  _Platform(this.x, this.y, this.w, this.h, {this.type = _PlatformType.normal})
+    : scored = false,
+      vx = 0,
+      baseX = x,
+      range = 0,
+      dissolving = false,
+      dissolveTimer = 0;
 }
 
 class _Coin {
@@ -34,9 +33,9 @@ class _Coin {
   bool collected;
   double phase;
   _Coin(this.platform, this.x)
-      : y = platform.y - radius,
-        collected = false,
-        phase = 0;
+    : y = platform.y - radius,
+      collected = false,
+      phase = 0;
 }
 
 class TrepaNubes extends PositionComponent
@@ -77,14 +76,18 @@ class TrepaNubes extends PositionComponent
   int _nextCoinInterval = 0;
   _Platform? _standingOn;
   Sprite? _ntiSprite;
+  Sprite? _coinSprite;
 
   @override
   FutureOr<void> onLoad() async {
     size = findGame()!.size;
     _ntiSprite = await Sprite.load('nti.png');
+    _coinSprite = await Sprite.load('ui/coin_star_v1.png');
     _nextCoinInterval = 50 + _random.nextInt(21);
 
-    _platforms.add(_Platform(size.x / 2 - basePlatW / 2, size.y - 40, basePlatW, platH));
+    _platforms.add(
+      _Platform(size.x / 2 - basePlatW / 2, size.y - 40, basePlatW, platH),
+    );
 
     for (int i = 0; i < 12; i++) {
       _addPlatformAbove(size.y - 40 - (i + 1) * platGap, randomType: i >= 3);
@@ -94,7 +97,12 @@ class TrepaNubes extends PositionComponent
     py = size.y - 40 - playerH;
   }
 
-  _Platform _makePlatform(double x, double y, double w, {bool randomType = true}) {
+  _Platform _makePlatform(
+    double x,
+    double y,
+    double w, {
+    bool randomType = true,
+  }) {
     if (!randomType) {
       return _Platform(x, y, w, platH);
     }
@@ -108,7 +116,8 @@ class TrepaNubes extends PositionComponent
           ? (size.x - w) / 2
           : maxRange + _random.nextDouble() * (size.x - w - maxRange * 2);
       final p = _Platform(safeX, y, w, platH, type: _PlatformType.moving);
-      p.vx = (movingSpeed * 0.6 + _random.nextDouble() * movingSpeed * 0.8) *
+      p.vx =
+          (movingSpeed * 0.6 + _random.nextDouble() * movingSpeed * 0.8) *
           (_random.nextBool() ? 1 : -1);
       p.range = maxRange;
       return p;
@@ -129,7 +138,9 @@ class TrepaNubes extends PositionComponent
     _platformsSinceCoin++;
     if (plat.type == _PlatformType.normal &&
         _platformsSinceCoin >= _nextCoinInterval) {
-      final coinX = plat.x + _Coin.radius +
+      final coinX =
+          plat.x +
+          _Coin.radius +
           _random.nextDouble() * (plat.w - _Coin.radius * 2);
       _coins.add(_Coin(plat, coinX));
       _platformsSinceCoin = 0;
@@ -203,17 +214,23 @@ class TrepaNubes extends PositionComponent
     }
 
     final topWorldY = camY;
-    if (_platforms.isEmpty || _platforms.map((p) => p.y).reduce(min) > topWorldY - 400) {
-      final baseY = _platforms.isEmpty ? camY - 200 : _platforms.map((p) => p.y).reduce(min);
+    if (_platforms.isEmpty ||
+        _platforms.map((p) => p.y).reduce(min) > topWorldY - 400) {
+      final baseY = _platforms.isEmpty
+          ? camY - 200
+          : _platforms.map((p) => p.y).reduce(min);
       for (int i = 0; i < 6; i++) {
         _addPlatformAbove(baseY - (i + 1) * platGap);
       }
     }
 
     _platforms.removeWhere((p) {
-      final remove = p.y > camY + size.y ||
+      final remove =
+          p.y > camY + size.y ||
           p.y + p.h < camY ||
-          (p.type == _PlatformType.dissolving && p.dissolving && p.dissolveTimer <= 0);
+          (p.type == _PlatformType.dissolving &&
+              p.dissolving &&
+              p.dissolveTimer <= 0);
       if (remove && identical(_standingOn, p)) {
         _standingOn = null;
       }
@@ -231,10 +248,12 @@ class TrepaNubes extends PositionComponent
         CoinStore.instance.add(1);
       }
     }
-    _coins.removeWhere((c) =>
-        c.collected ||
-        !_platforms.contains(c.platform) ||
-        c.y > camY + size.y + 20);
+    _coins.removeWhere(
+      (c) =>
+          c.collected ||
+          !_platforms.contains(c.platform) ||
+          c.y > camY + size.y + 20,
+    );
 
     if (py - camY > size.y + 50) {
       gameOver = true;
@@ -249,7 +268,11 @@ class TrepaNubes extends PositionComponent
     final gradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [const Color(0xFF1a1a2e), const Color(0xFF16213e), const Color(0xFF0f3460)],
+      colors: [
+        const Color(0xFF1a1a2e),
+        const Color(0xFF16213e),
+        const Color(0xFF0f3460),
+      ],
     );
     canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
 
@@ -267,7 +290,8 @@ class TrepaNubes extends PositionComponent
             Rect.fromLTWH(plat.x, y, plat.w, h),
             const Radius.circular(5),
           ),
-          Paint()..color = const Color(0xFFe64a19).withOpacity(0.6 + 0.4 * progress),
+          Paint()
+            ..color = const Color(0xFFe64a19).withOpacity(0.6 + 0.4 * progress),
         );
         continue;
       }
@@ -297,32 +321,32 @@ class TrepaNubes extends PositionComponent
         Rect.fromLTWH(plat.x, screenY, plat.w, plat.h),
         const Radius.circular(5),
       );
-      canvas.drawRRect(rrect, Paint()..shader = gradient2.createShader(
-        Rect.fromLTWH(plat.x, screenY, plat.w, plat.h),
-      ));
       canvas.drawRRect(
         rrect,
-        Paint()..color = Colors.white38..style = PaintingStyle.stroke..strokeWidth = 1,
+        Paint()
+          ..shader = gradient2.createShader(
+            Rect.fromLTWH(plat.x, screenY, plat.w, plat.h),
+          ),
+      );
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = Colors.white38
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
       );
     }
 
     for (final coin in _coins) {
       final screenY = coin.y - camY + sin(coin.phase) * 2;
-      if (screenY < -_Coin.radius * 2 || screenY > size.y + _Coin.radius * 2) continue;
+      if (screenY < -_Coin.radius * 2 || screenY > size.y + _Coin.radius * 2)
+        continue;
       final center = Offset(coin.x, screenY);
-      canvas.drawCircle(center, _Coin.radius, Paint()..color = const Color(0xFFf6c445));
-      canvas.drawCircle(center, _Coin.radius, Paint()
-        ..color = const Color(0xFFb8860b)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2);
-      final coinTp = TextPainter(
-        text: TextSpan(
-          text: '\$',
-          style: const TextStyle(color: Color(0xFFb8860b), fontSize: 12, fontWeight: FontWeight.bold),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      coinTp.paint(canvas, center - Offset(coinTp.width / 2, coinTp.height / 2));
+      _coinSprite?.render(
+        canvas,
+        position: Vector2(center.dx - _Coin.radius, center.dy - _Coin.radius),
+        size: Vector2.all(_Coin.radius * 2),
+      );
     }
 
     final playerScreenY = py - camY;
@@ -337,29 +361,37 @@ class TrepaNubes extends PositionComponent
     final scoreTp = TextPainter(
       text: TextSpan(
         text: '$score',
-        style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 36,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
     scoreTp.paint(canvas, Offset((size.x - scoreTp.width) / 2, 16));
 
     final coinCountIcon = Offset(size.x - 52, 30);
-    canvas.drawCircle(coinCountIcon, 13, Paint()..color = const Color(0xFFf6c445));
-    canvas.drawCircle(coinCountIcon, 13, Paint()
-      ..color = const Color(0xFFb8860b)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2);
+    _coinSprite?.render(
+      canvas,
+      position: Vector2(coinCountIcon.dx - 13, coinCountIcon.dy - 13),
+      size: Vector2.all(26),
+    );
     final coinCountTp = TextPainter(
       text: TextSpan(
         text: '$_coinsCollected',
-        style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    coinCountTp.paint(canvas, Offset(
-      size.x - 52 - coinCountTp.width - 14,
-      30 - coinCountTp.height / 2,
-    ));
+    coinCountTp.paint(
+      canvas,
+      Offset(size.x - 52 - coinCountTp.width - 14, 30 - coinCountTp.height / 2),
+    );
 
     if (!_started) {
       canvas.drawRect(rect, Paint()..color = Colors.black54);
@@ -367,14 +399,18 @@ class TrepaNubes extends PositionComponent
       final titleTp = TextPainter(
         text: TextSpan(
           text: 'Trepa Nubes',
-          style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 36,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      titleTp.paint(canvas, Offset(
-        (size.x - titleTp.width) / 2,
-        size.y / 2 - 60,
-      ));
+      titleTp.paint(
+        canvas,
+        Offset((size.x - titleTp.width) / 2, size.y / 2 - 60),
+      );
 
       final hintTp = TextPainter(
         text: TextSpan(
@@ -383,26 +419,28 @@ class TrepaNubes extends PositionComponent
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      hintTp.paint(canvas, Offset(
-        (size.x - hintTp.width) / 2,
-        size.y / 2,
-      ));
+      hintTp.paint(canvas, Offset((size.x - hintTp.width) / 2, size.y / 2));
     }
 
     if (gameOver) {
       canvas.drawRect(rect, Paint()..color = Colors.black54);
       final goTp = TextPainter(
         text: TextSpan(
-          text: 'Game Over\nScore: $score\nMonedas: +$_earnedCoins\n\nTap to exit',
-          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+          text:
+              'Game Over\nScore: $score\nMonedas: +$_earnedCoins\n\nTap to exit',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.center,
       )..layout();
-      goTp.paint(canvas, Offset(
-        (size.x - goTp.width) / 2,
-        (size.y - goTp.height) / 2 - 30,
-      ));
+      goTp.paint(
+        canvas,
+        Offset((size.x - goTp.width) / 2, (size.y - goTp.height) / 2 - 30),
+      );
     }
   }
 
