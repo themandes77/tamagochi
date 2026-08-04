@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/gui.dart';
 
 enum PlayerState { idle }
@@ -59,10 +60,26 @@ class Nti extends PositionComponent with TapCallbacks {
         case Tool.games:
           break;
         case Tool.soap:
-          wash();
+          if (cleanliness >= 10) {
+            CoinStore.instance.setMessage('Already clean');
+            break;
+          }
+          if (CoinStore.instance.trySpend(CoinStore.soapPrice)) {
+            wash();
+          } else {
+            CoinStore.instance.setMessage('Need ${CoinStore.soapPrice} monedas');
+          }
           break;
         case Tool.food:
-          feed();
+          if (hunger >= 10) {
+            CoinStore.instance.setMessage('Already full');
+            break;
+          }
+          if (CoinStore.instance.trySpend(CoinStore.foodPrice)) {
+            feed();
+          } else {
+            CoinStore.instance.setMessage('Need ${CoinStore.foodPrice} monedas');
+          }
           break;
         case Tool.none:
           break;

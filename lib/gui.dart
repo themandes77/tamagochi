@@ -2,6 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/actors/player.dart';
+import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/nti_tamagochi.dart';
 
 enum Tool { none, soap, food, games }
@@ -172,5 +173,78 @@ class Hud extends PositionComponent with HasGameReference, TapCallbacks {
         return true;
       }
       return false;
+    }
+}
+
+class CoinDisplay extends PositionComponent with HasGameReference {
+  static const double boxWidth = 120;
+  static const double boxHeight = 32;
+  static const double coinRadius = 12;
+
+  @override
+    void onMount() {
+      super.onMount();
+      size = Vector2(boxWidth, boxHeight);
+      final gameSize = findGame()!.size;
+      position = Vector2(gameSize.x - boxWidth - 10, 8);
+    }
+
+  @override
+    void update(double dt) {
+      super.update(dt);
+      final store = CoinStore.instance;
+      if (store.message != null &&
+          DateTime.now().difference(store.messageTime!).inSeconds >= 2) {
+        store.message = null;
+      }
+    }
+
+  @override
+    void render(Canvas canvas) {
+      final center = Offset(coinRadius + 4, boxHeight / 2);
+      canvas.drawCircle(center, coinRadius, Paint()..color = const Color(0xFFf6c445));
+      canvas.drawCircle(
+          center,
+          coinRadius,
+          Paint()
+          ..color = const Color(0xFFb8860b)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+          );
+
+      final tp = TextPainter(
+          text: TextSpan(
+            text: '${CoinStore.instance.balance}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+              ),
+            ),
+          textDirection: TextDirection.ltr,
+          )..layout();
+      tp.paint(canvas, Offset(coinRadius * 2 + 10, (boxHeight - tp.height) / 2));
+
+      final msg = CoinStore.instance.message;
+      if (msg != null) {
+        final msgTp = TextPainter(
+            text: TextSpan(
+              text: msg,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+            textDirection: TextDirection.ltr,
+            )..layout();
+        final mw = msgTp.width + 16;
+        final mx = size.x - mw - 4;
+        canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(mx, boxHeight + 4, mw, msgTp.height + 8),
+              const Radius.circular(8),
+              ),
+            Paint()..color = Colors.black87,
+            );
+        msgTp.paint(canvas, Offset(mx + 8, boxHeight + 8));
+      }
     }
 }

@@ -33,6 +33,7 @@ class NtiTamagochi extends FlameGame{
       add(nti);
       add(toolBar);
       add(Hud(nti));
+      add(CoinDisplay());
     }
 
   @override
