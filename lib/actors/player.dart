@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
-import 'package:flutter_application_1/coins.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_application_1/gui.dart';
 
 enum PlayerState { idle }
@@ -16,11 +16,7 @@ class Nti extends PositionComponent with TapCallbacks {
   double decayRate = 0.2;
   ToolBar? toolBar;
 
-  Nti({
-      this.hunger = 10,
-      this.cleanliness = 10,
-      this.energy = 10,
-      });
+  Nti({this.hunger = 10, this.cleanliness = 10, this.energy = 10});
 
   void feed() {
     hunger = (hunger + 3).clamp(0, 10);
@@ -37,53 +33,44 @@ class Nti extends PositionComponent with TapCallbacks {
   }
 
   @override
-    FutureOr<void> onLoad() async {
-      final sprite = await Sprite.load("nti.png");
+  FutureOr<void> onLoad() async {
+    final sprite = await Sprite.load("nti.png");
+    final component = SpriteComponent(
+      sprite: sprite,
+      size: Vector2(224, 280),
+      anchor: Anchor.center,
+      position: findGame()!.size / 2,
+    );
+    add(component);
 
-      size = Vector2(224, 280);
-      anchor = Anchor.center;
-      position = findGame()!.size / 2;
-
-      final component = SpriteComponent(
-          sprite: sprite,
-          size: Vector2(224, 280),
-          );
-      add(component);
-
-      return super.onLoad();
-    }
+    return super.onLoad();
+  }
 
   @override
-    bool onTapDown(TapDownEvent event) {
-      if (toolBar == null) return false;
-      switch (toolBar!.selected) {
-        case Tool.games:
-          break;
-        case Tool.soap:
-          if (cleanliness >= 10) {
-            CoinStore.instance.setMessage('Already clean');
-            break;
-          }
-          if (CoinStore.instance.trySpend(CoinStore.soapPrice)) {
-            wash();
-          } else {
-            CoinStore.instance.setMessage('Need ${CoinStore.soapPrice} monedas');
-          }
-          break;
-        case Tool.food:
-          if (hunger >= 10) {
-            CoinStore.instance.setMessage('Already full');
-            break;
-          }
-          if (CoinStore.instance.trySpend(CoinStore.foodPrice)) {
-            feed();
-          } else {
-            CoinStore.instance.setMessage('Need ${CoinStore.foodPrice} monedas');
-          }
-          break;
-        case Tool.none:
-          break;
-      }
-      return true;
+  void render(Canvas canvas) {
+    super.render(canvas);
+    canvas.drawRect(
+      Rect.fromLTWH(-size.x / 2, -size.y / 2, size.x, size.y),
+      Paint()
+        ..color = Colors.red
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool onTapDown(TapDownEvent event) {
+    if (toolBar == null) return false;
+    switch (toolBar!.selected) {
+      case Tool.soap:
+        wash();
+        break;
+      case Tool.food:
+        feed();
+        break;
+      case Tool.none:
+        break;
     }
+    return true;
+  }
 }
