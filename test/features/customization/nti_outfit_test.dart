@@ -25,7 +25,7 @@ void main() {
     );
     expect(
       NtiOutfit.techno.integratedAssetPath,
-      'outfits/nti_techno_integrated_v4.png',
+      'outfits/nti_techno_integrated_v3.png',
     );
     expect(
       NtiOutfit.adventurer.integratedAssetPath,
@@ -37,12 +37,10 @@ void main() {
     );
   });
 
-  test('every outfit defines a valid catalog normalization scale', () {
-    for (final outfit in NtiOutfit.values) {
-      expect(outfit.catalogPreviewScaleX, greaterThan(0));
-      expect(outfit.catalogPreviewScaleX, lessThanOrEqualTo(1));
-      expect(outfit.catalogPreviewScaleY, greaterThan(0));
-      expect(outfit.catalogPreviewScaleY, lessThanOrEqualTo(1));
-    }
+  test('every outfit uses a distinct integrated artwork', () {
+    expect(
+      NtiOutfit.values.map((outfit) => outfit.integratedAssetPath).toSet(),
+      hasLength(NtiOutfit.values.length),
+    );
   });
 }

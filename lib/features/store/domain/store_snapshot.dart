@@ -6,7 +6,7 @@ class StoreSnapshot {
     required this.equippedThemeId,
   }) : ownedItemIds = Set.unmodifiable(ownedItemIds);
 
-  factory StoreSnapshot.initial({int coins = 200}) {
+  factory StoreSnapshot.initial({int coins = 500}) {
     return StoreSnapshot(
       coins: coins,
       ownedItemIds: const {'outfit_original', 'theme_original'},

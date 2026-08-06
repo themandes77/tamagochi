@@ -6,6 +6,8 @@ class StoreCoinBalance extends StatelessWidget {
   const StoreCoinBalance({
     required this.coins,
     this.compact = false,
+    this.width,
+    this.height,
     super.key,
   });
 
@@ -14,15 +16,25 @@ class StoreCoinBalance extends StatelessWidget {
 
   final int coins;
   final bool compact;
+  final double? width;
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedWidth = width ?? (compact ? 88.0 : 104.0);
+    final resolvedHeight = height ?? (compact ? 42.0 : 48.0);
+    final horizontalScale = resolvedWidth / 104;
+    final verticalScale = resolvedHeight / 48;
+    final contentScale = horizontalScale < verticalScale
+        ? horizontalScale
+        : verticalScale;
+
     return Semantics(
       key: const ValueKey('coin_balance_semantics'),
       label: '$coins monedas',
       child: SizedBox(
-        width: compact ? 88 : 104,
-        height: compact ? 42 : 48,
+        width: resolvedWidth,
+        height: resolvedHeight,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -34,9 +46,12 @@ class StoreCoinBalance extends StatelessWidget {
               excludeFromSemantics: true,
             ),
             Padding(
-              padding: compact
-                  ? const EdgeInsets.fromLTRB(10, 6, 8, 8)
-                  : const EdgeInsets.fromLTRB(13, 7, 10, 9),
+              padding: EdgeInsets.fromLTRB(
+                13 * horizontalScale,
+                7 * verticalScale,
+                10 * horizontalScale,
+                9 * verticalScale,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -58,9 +73,9 @@ class StoreCoinBalance extends StatelessWidget {
                         child: Text(
                           '$coins',
                           style: TextStyle(
-                            color: Color(0xFFFFF1C4),
+                            color: const Color(0xFFFFF1C4),
                             fontWeight: FontWeight.w700,
-                            fontSize: compact ? 17 : 20,
+                            fontSize: 20 * contentScale,
                             height: 1,
                             shadows: [
                               Shadow(
@@ -74,12 +89,12 @@ class StoreCoinBalance extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SizedBox(width: compact ? 3 : 5),
+                  SizedBox(width: 5 * horizontalScale),
                   Image.asset(
                     _coinAssetPath,
                     key: const ValueKey('coin_star_asset'),
-                    width: compact ? 24 : 29,
-                    height: compact ? 24 : 29,
+                    width: 29 * contentScale,
+                    height: 29 * contentScale,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                     excludeFromSemantics: true,

@@ -3,6 +3,13 @@ import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/features/store/presentation/store_visual_tokens.dart';
 
 class StoreCategoryTabs extends StatelessWidget {
+  static const panelOverlap = 8.0;
+
+  static double visualHeightForWidth(double width) => width < 360 ? 54 : 60;
+
+  static double layoutHeightForWidth(double width) =>
+      visualHeightForWidth(width) - panelOverlap;
+
   const StoreCategoryTabs({
     required this.selectedKind,
     required this.onSelected,
@@ -17,6 +24,7 @@ class StoreCategoryTabs extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 360;
+        final tabHeight = visualHeightForWidth(constraints.maxWidth);
         final widthFactor = compact
             ? 0.96
             : constraints.maxWidth < 600
@@ -29,29 +37,34 @@ class StoreCategoryTabs extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
               child: SizedBox(
-                height: compact ? 54 : 60,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _StoreCategoryTab(
-                        label: 'TRAJES',
-                        icon: Icons.checkroom_rounded,
-                        selected: selectedKind == ShopItemKind.outfit,
-                        compact: compact,
-                        onTap: () => onSelected(ShopItemKind.outfit),
+                height: layoutHeightForWidth(constraints.maxWidth),
+                child: OverflowBox(
+                  alignment: Alignment.topCenter,
+                  minHeight: tabHeight,
+                  maxHeight: tabHeight,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _StoreCategoryTab(
+                          label: 'TRAJES',
+                          icon: Icons.checkroom_rounded,
+                          selected: selectedKind == ShopItemKind.outfit,
+                          compact: compact,
+                          onTap: () => onSelected(ShopItemKind.outfit),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: _StoreCategoryTab(
-                        label: 'FONDOS',
-                        icon: Icons.image_rounded,
-                        selected: selectedKind == ShopItemKind.theme,
-                        compact: compact,
-                        onTap: () => onSelected(ShopItemKind.theme),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _StoreCategoryTab(
+                          label: 'FONDOS',
+                          icon: Icons.image_rounded,
+                          selected: selectedKind == ShopItemKind.theme,
+                          compact: compact,
+                          onTap: () => onSelected(ShopItemKind.theme),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -15,7 +15,7 @@ class StoreController extends ChangeNotifier {
     this.catalog = defaultShopCatalog,
     this.outfits = NtiOutfit.values,
     this.themes = defaultThemeOptions,
-    int initialCoins = 200,
+    int initialCoins = 500,
   }) : _state = StoreSnapshot.initial(coins: initialCoins);
 
   final StoreRepository repository;

@@ -16,7 +16,7 @@ void main() {
     });
 
     test('starts with the free outfit and theme equipped', () {
-      expect(controller.coins, 200);
+      expect(controller.coins, 500);
       expect(controller.equippedOutfitId, 'original');
       expect(controller.equippedThemeId, 'original');
       expect(
@@ -29,7 +29,7 @@ void main() {
       final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.success);
-      expect(controller.coins, 100);
+      expect(controller.coins, 400);
       expect(controller.ownedItemIds, contains('outfit_anniversary'));
     });
 
@@ -38,7 +38,7 @@ void main() {
       final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.alreadyOwned);
-      expect(controller.coins, 100);
+      expect(controller.coins, 400);
     });
 
     test('rejects a purchase without enough coins', () async {
@@ -82,7 +82,7 @@ void main() {
         final restored = StoreController(repository: repository);
         await restored.initialize();
 
-        expect(restored.coins, 100);
+        expect(restored.coins, 400);
         expect(restored.equippedOutfitId, 'anniversary');
         expect(restored.ownedItemIds, contains('outfit_anniversary'));
       },
@@ -91,7 +91,7 @@ void main() {
     test('adds rewards from a minigame', () async {
       await controller.addCoins(25);
 
-      expect(controller.coins, 225);
+      expect(controller.coins, 525);
     });
 
     test('rejects invalid rewards', () {

@@ -26,9 +26,17 @@ class Nti extends PositionComponent with TapCallbacks {
 
   late final SpriteComponent _body;
   late final NtiFace _face;
+  late final _NtiGroundShadow _shadow;
   late final NtiSpeechBubble _speechBubble;
   double _idleTime = 0;
+  double _reactionRemaining = 0;
+  double _reactionDuration = 0;
+  double _reactionVisual = 0;
+  double _viewportScale = 1;
   int _greetingIndex = 0;
+  Vector2? _restingPosition;
+
+  bool get isReacting => _reactionRemaining > 0;
 
   static const _greetings = <String>[
     '¡Hola! ¿Jugamos?',
@@ -54,7 +62,23 @@ class Nti extends PositionComponent with TapCallbacks {
     outfit = newOutfit;
     _body.sprite = await Sprite.load(newOutfit.artworkAssetPath);
     _face.outfit = newOutfit;
+    react(celebratory: true);
     say('¡Traje ${newOutfit.displayName} equipado!');
+  }
+
+  void react({bool celebratory = false}) {
+    _reactionDuration = celebratory ? 0.9 : 0.56;
+    _reactionRemaining = _reactionDuration;
+
+    if (isLoaded) {
+      add(
+        _NtiSparkleBurst(
+          size: size,
+          particleCount: celebratory ? 18 : 10,
+          duration: celebratory ? 1.5 : 1.05,
+        ),
+      );
+    }
   }
 
   void say(String message, {double duration = 3}) {
@@ -64,8 +88,12 @@ class Nti extends PositionComponent with TapCallbacks {
 
   @override
   FutureOr<void> onLoad() async {
-    position = findGame()!.size / 2 + Vector2(0, 18);
+    _placeAtCenter(findGame()!.size);
 
+    _shadow = _NtiGroundShadow(
+      position: Vector2(62, size.y * 0.87),
+      size: Vector2(size.x - 124, 46),
+    );
     _body = SpriteComponent(
       sprite: await Sprite.load(outfit.artworkAssetPath),
       size: size,
@@ -73,23 +101,81 @@ class Nti extends PositionComponent with TapCallbacks {
     _face = NtiFace(size: size, outfit: outfit);
     _speechBubble = NtiSpeechBubble(position: Vector2((size.x - 244) / 2, -84));
 
-    addAll([_body, _face, _speechBubble]);
+    addAll([_shadow, _body, _face, _speechBubble]);
     say('¡Hola! Soy NTI.', duration: 2.8);
     return super.onLoad();
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    _placeAtCenter(size);
+  }
+
+  void _placeAtCenter(Vector2 gameSize) {
+    _viewportScale = math
+        .min(gameSize.x / 500, gameSize.y / 820)
+        .clamp(0.72, 1.08);
+    _restingPosition = gameSize / 2 + Vector2(0, 18);
+    position = _restingPosition!;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     _idleTime += dt;
+    _reactionRemaining = math.max(0, _reactionRemaining - dt);
 
-    final breath = math.sin(_idleTime * math.pi);
-    scale = Vector2.all(1 + breath * 0.006);
-    angle = math.sin(_idleTime * 0.8) * 0.006;
+    final restingPosition = _restingPosition;
+    final floatOffset = math.sin(_idleTime * 1.65) * 5.5;
+    final reactionProgress = _reactionDuration == 0
+        ? 1.0
+        : 1 - (_reactionRemaining / _reactionDuration);
+    _reactionVisual = isReacting ? math.sin(reactionProgress * math.pi) : 0.0;
+
+    if (restingPosition != null) {
+      position = Vector2(
+        restingPosition.x,
+        restingPosition.y + floatOffset - _reactionVisual * 20,
+      );
+    }
+
+    final breath = math.sin(_idleTime * math.pi) * 0.008;
+    scale = Vector2.all(_viewportScale * (1 + breath + _reactionVisual * 0.06));
+    angle =
+        math.sin(_idleTime * 0.8) * 0.007 +
+        math.sin(reactionProgress * math.pi * 2) * _reactionVisual * 0.025;
+
+    if (isLoaded) {
+      _shadow.lift = (floatOffset + 5.5) / 11 + _reactionVisual;
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (_reactionVisual > 0) {
+      final glowRect = Rect.fromCircle(
+        center: Offset(size.x / 2, size.y / 2),
+        radius: size.x * (0.43 + _reactionVisual * 0.05),
+      );
+      canvas.drawCircle(
+        glowRect.center,
+        glowRect.width / 2,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              const Color(0xFFFFD45A).withValues(alpha: _reactionVisual * 0.25),
+              Colors.transparent,
+            ],
+          ).createShader(glowRect),
+      );
+    }
+    super.render(canvas);
   }
 
   @override
   bool onTapDown(TapDownEvent event) {
+    react();
     final selectedTool = toolBar?.selected ?? Tool.none;
 
     switch (selectedTool) {
@@ -106,6 +192,143 @@ class Nti extends PositionComponent with TapCallbacks {
 
     return true;
   }
+}
+
+class _NtiGroundShadow extends PositionComponent {
+  _NtiGroundShadow({required super.position, required super.size}) {
+    priority = -10;
+  }
+
+  double lift = 0;
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final normalizedLift = lift.clamp(0.0, 2.0);
+    final shadowRect = Rect.fromCenter(
+      center: Offset(size.x / 2, size.y / 2),
+      width: size.x * (1 - normalizedLift * 0.1),
+      height: size.y * (1 - normalizedLift * 0.16),
+    );
+    canvas.drawOval(
+      shadowRect,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(
+              0xFF352043,
+            ).withValues(alpha: 0.4 - normalizedLift * 0.09),
+            Colors.transparent,
+          ],
+        ).createShader(shadowRect),
+    );
+  }
+}
+
+class _NtiSparkleBurst extends PositionComponent {
+  _NtiSparkleBurst({
+    required super.size,
+    required this.particleCount,
+    required this.duration,
+  }) : _particles = List.generate(
+         particleCount,
+         (index) => _NtiSparkleParticle(
+           angle:
+               (math.pi * 2 * index / particleCount) +
+               (index.isEven ? 0.08 : -0.05),
+           distance: 68 + (index % 4) * 18,
+           size: 7 + (index % 3) * 2.5,
+           spin: index.isEven ? 1 : -1,
+         ),
+       ) {
+    priority = 20;
+  }
+
+  final int particleCount;
+  final double duration;
+  final List<_NtiSparkleParticle> _particles;
+  double _elapsed = 0;
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _elapsed += dt;
+    if (_elapsed >= duration) {
+      removeFromParent();
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final progress = (_elapsed / duration).clamp(0.0, 1.0);
+    final easedProgress = 1 - math.pow(1 - progress, 2).toDouble();
+    final opacity = math.sin(progress * math.pi).clamp(0.0, 1.0);
+    final center = Offset(size.x / 2, size.y / 2);
+
+    for (final particle in _particles) {
+      final distance = particle.distance * easedProgress;
+      final particleCenter = Offset(
+        center.dx + math.cos(particle.angle) * distance,
+        center.dy + math.sin(particle.angle) * distance,
+      );
+      _drawStar(
+        canvas,
+        center: particleCenter,
+        radius: particle.size * (0.72 + opacity * 0.28),
+        rotation: progress * math.pi * particle.spin,
+        opacity: opacity,
+      );
+    }
+  }
+
+  void _drawStar(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required double rotation,
+    required double opacity,
+  }) {
+    final path = Path();
+    for (var index = 0; index < 8; index++) {
+      final pointRadius = index.isEven ? radius : radius * 0.32;
+      final pointAngle = rotation - math.pi / 2 + index * math.pi / 4;
+      final point = Offset(
+        center.dx + math.cos(pointAngle) * pointRadius,
+        center.dy + math.sin(pointAngle) * pointRadius,
+      );
+      if (index == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+
+    canvas.drawPath(
+      path,
+      Paint()..color = const Color(0xFFFFBE24).withValues(alpha: opacity),
+    );
+    canvas.drawCircle(
+      center,
+      radius * 0.22,
+      Paint()..color = Colors.white.withValues(alpha: opacity * 0.9),
+    );
+  }
+}
+
+class _NtiSparkleParticle {
+  const _NtiSparkleParticle({
+    required this.angle,
+    required this.distance,
+    required this.size,
+    required this.spin,
+  });
+
+  final double angle;
+  final double distance;
+  final double size;
+  final int spin;
 }
 
 class NtiFace extends PositionComponent {
