@@ -1,13 +1,16 @@
-import 'package:flame/flame.dart';
-import 'package:flame/game.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/nti_tamagochi.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_application_1/app/app_bootstrap.dart';
+import 'package:flutter_application_1/app/nti_app.dart';
 
-void main() {
-    WidgetsFlutterBinding.ensureInitialized();
-    Flame.device.fullScreen();
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-    NtiTamagochi game = NtiTamagochi();
-    runApp(GameWidget(game: kDebugMode ? NtiTamagochi() : game));
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await SystemChrome.setPreferredOrientations(
+    const <DeviceOrientation>[DeviceOrientation.portraitUp],
+  );
+
+  final bootstrap = AppBootstrap.create();
+  runApp(NtiApp(bootstrap: bootstrap));
 }
