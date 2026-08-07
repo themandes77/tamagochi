@@ -4,7 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/coins.dart';
-import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
+import 'package:flutter_application_1/features/mini-games/minigame_top_banner.dart';
 
 enum _PlatformType { normal, moving, dissolving }
 
@@ -44,20 +44,23 @@ class TrepaNubes extends PositionComponent
   static const double baseGravity = 1200;
   static const double jumpVel = -520;
   static const double basePlatW = 64;
-  static const double minPlatW = 28;
   static const double platH = 14;
-  static const double playerW = 48;
-  static const double playerH = 60;
+  static const double playerW = 60;
+  static const double playerH = 75;
+  static const double playerCollisionInset = 10;
   static const double platGap = 60;
   static const double gapVariance = 20;
   static const double baseScrollSpeed = 80;
   static const double movingRange = 60;
   static const double movingSpeed = 70;
-  static const double dissolveTime = 0.45;
+  static const double dissolveTime = 0.75;
+  static const double brittleFallDistance = 90;
   static const double movingChance = 0.15;
   static const double dissolveChance = 0.15;
+  static const double platformSpriteAspectRatio = 403 / 1234;
+  static const double brittleSpriteAspectRatio = 1024 / 1536;
+  static const double brittleSpriteTopInset = 320 / 1024;
   double get _currentGravity => baseGravity + (score / 10) * 20;
-  double get _currentPlatW => max(minPlatW, basePlatW - (score / 8) * 2);
   double get _currentScrollSpeed => baseScrollSpeed + (score / 50) * 5;
 
   late double px, py;
@@ -67,7 +70,6 @@ class TrepaNubes extends PositionComponent
   int _earnedCoins = 0;
   bool gameOver = false;
   bool _started = false;
-  bool _dragging = false;
   double _dragX = 0;
   final Random _random = Random();
   final List<_Platform> _platforms = [];
@@ -75,16 +77,30 @@ class TrepaNubes extends PositionComponent
   int _platformsSinceCoin = 0;
   int _nextCoinInterval = 0;
   _Platform? _standingOn;
+  Sprite? _backgroundSprite;
+  Sprite? _platformSprite;
+  Sprite? _brittlePlatformSprite;
   Sprite? _ntiSprite;
   Sprite? _coinSprite;
-  final CoinBalanceHud _coinBalanceHud = CoinBalanceHud();
+  final MinigameTopBanner _topBanner = MinigameTopBanner(
+    gameNameFontSize: 13,
+    scoreFontSize: 15,
+    coinFontSize: 16,
+  );
 
   @override
   FutureOr<void> onLoad() async {
     size = findGame()!.size;
+    _backgroundSprite = await Sprite.load(
+      'backgrounds/salto_estelar_background.png',
+    );
+    _platformSprite = await Sprite.load('ui/store_showcase_platform_v1.png');
+    _brittlePlatformSprite = await Sprite.load(
+      'minigame-elements/brittle_platform_v1.png',
+    );
     _ntiSprite = await Sprite.load('nti.png');
     _coinSprite = await Sprite.load('ui/coin_star_v1.png');
-    await _coinBalanceHud.load();
+    await _topBanner.load();
     _nextCoinInterval = 50 + _random.nextInt(21);
 
     _platforms.add(
@@ -128,7 +144,7 @@ class TrepaNubes extends PositionComponent
   }
 
   void _addPlatformAbove(double referenceY, {bool randomType = true}) {
-    final w = _currentPlatW;
+    const w = basePlatW;
     double x = _random.nextDouble() * (size.x - w);
     double y = referenceY - _random.nextDouble() * gapVariance;
     final plat = _makePlatform(x, y, w, randomType: randomType);
@@ -169,8 +185,8 @@ class TrepaNubes extends PositionComponent
         if (identical(_standingOn, plat) &&
             py + playerH >= plat.y - 6 &&
             py + playerH <= plat.y + 6 &&
-            px + playerW > plat.x &&
-            px < plat.x + plat.w) {
+            px + playerW - playerCollisionInset > plat.x &&
+            px + playerCollisionInset < plat.x + plat.w) {
           px = (px + (plat.x - prevX)).clamp(0, size.x - playerW);
           py = plat.y - playerH;
         }
@@ -180,30 +196,37 @@ class TrepaNubes extends PositionComponent
       }
     }
 
+    final previousBottom = py + playerH;
     pvy += _currentGravity * dt;
-
     py += pvy * dt;
 
     if (pvy > 0) {
       _standingOn = null;
-      final playerBottom = py + playerH;
+      final currentBottom = py + playerH;
+      _Platform? landingPlatform;
       for (final plat in _platforms) {
-        if (playerBottom <= plat.y + 2 &&
-            playerBottom + pvy * dt >= plat.y - 2 &&
-            px + playerW > plat.x &&
-            px < plat.x + plat.w) {
-          py = plat.y - playerH;
-          pvy = jumpVel;
-          _standingOn = plat;
-          if (plat.type == _PlatformType.dissolving && !plat.dissolving) {
-            plat.dissolving = true;
-            plat.dissolveTimer = dissolveTime;
+        if (!plat.dissolving &&
+            previousBottom <= plat.y + 2 &&
+            currentBottom >= plat.y - 2 &&
+            px + playerW - playerCollisionInset > plat.x &&
+            px + playerCollisionInset < plat.x + plat.w) {
+          if (landingPlatform == null || plat.y < landingPlatform.y) {
+            landingPlatform = plat;
           }
-          if (!plat.scored) {
-            score++;
-            plat.scored = true;
-          }
-          break;
+        }
+      }
+      if (landingPlatform != null) {
+        final platform = landingPlatform;
+        py = platform.y - playerH;
+        pvy = jumpVel;
+        _standingOn = platform;
+        if (platform.type == _PlatformType.dissolving) {
+          platform.dissolving = true;
+          platform.dissolveTimer = dissolveTime;
+        }
+        if (!platform.scored) {
+          score++;
+          platform.scored = true;
         }
       }
     }
@@ -266,82 +289,32 @@ class TrepaNubes extends PositionComponent
   @override
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        const Color(0xFF1a1a2e),
-        const Color(0xFF16213e),
-        const Color(0xFF0f3460),
-      ],
-    );
-    canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
+    if (_backgroundSprite != null) {
+      _backgroundSprite!.render(canvas, position: Vector2.zero(), size: size);
+    } else {
+      final gradient = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF1a1a2e),
+          const Color(0xFF16213e),
+          const Color(0xFF0f3460),
+        ],
+      );
+      canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
+    }
 
     for (final plat in _platforms) {
       final screenY = plat.y - camY;
       if (screenY < -plat.h || screenY > size.y) continue;
-
-      if (plat.type == _PlatformType.dissolving && plat.dissolving) {
-        final progress = (plat.dissolveTimer / dissolveTime).clamp(0.0, 1.0);
-        final h = plat.h * progress;
-        if (h <= 0) continue;
-        final y = screenY + (plat.h - h);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(plat.x, y, plat.w, h),
-            const Radius.circular(5),
-          ),
-          Paint()
-            ..color = const Color(0xFFe64a19).withOpacity(0.6 + 0.4 * progress),
-        );
-        continue;
-      }
-
-      Color c1, c2;
-      switch (plat.type) {
-        case _PlatformType.moving:
-          c1 = const Color(0xFFa5d8ff);
-          c2 = const Color(0xFF4d9de0);
-          break;
-        case _PlatformType.dissolving:
-          c1 = const Color(0xFFffcc80);
-          c2 = const Color(0xFFe64a19);
-          break;
-        case _PlatformType.normal:
-          c1 = const Color(0xFFe0e0e0);
-          c2 = const Color(0xFF90a4ae);
-          break;
-      }
-
-      final gradient2 = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [c1, c2],
-      );
-      final rrect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(plat.x, screenY, plat.w, plat.h),
-        const Radius.circular(5),
-      );
-      canvas.drawRRect(
-        rrect,
-        Paint()
-          ..shader = gradient2.createShader(
-            Rect.fromLTWH(plat.x, screenY, plat.w, plat.h),
-          ),
-      );
-      canvas.drawRRect(
-        rrect,
-        Paint()
-          ..color = Colors.white38
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
-      );
+      _drawPlatform(canvas, plat, screenY);
     }
 
     for (final coin in _coins) {
       final screenY = coin.y - camY + sin(coin.phase) * 2;
-      if (screenY < -_Coin.radius * 2 || screenY > size.y + _Coin.radius * 2)
+      if (screenY < -_Coin.radius * 2 || screenY > size.y + _Coin.radius * 2) {
         continue;
+      }
       final center = Offset(coin.x, screenY);
       _coinSprite?.render(
         canvas,
@@ -359,20 +332,7 @@ class TrepaNubes extends PositionComponent
       );
     }
 
-    final scoreTp = TextPainter(
-      text: TextSpan(
-        text: '$score',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    scoreTp.paint(canvas, Offset((size.x - scoreTp.width) / 2, 16));
-
-    _coinBalanceHud.render(canvas, size);
+    _topBanner.render(canvas, size, gameName: 'Salto\nEstelar', score: score);
 
     if (!_started) {
       canvas.drawRect(rect, Paint()..color = Colors.black54);
@@ -425,14 +385,53 @@ class TrepaNubes extends PositionComponent
     }
   }
 
+  void _drawPlatform(Canvas canvas, _Platform platform, double screenY) {
+    final sprite = platform.type == _PlatformType.dissolving
+        ? _brittlePlatformSprite
+        : _platformSprite;
+    if (sprite == null) return;
+
+    final isBrittle = platform.type == _PlatformType.dissolving;
+    final aspectRatio = isBrittle
+        ? brittleSpriteAspectRatio
+        : platformSpriteAspectRatio;
+    final visualHeight = max(platform.h, platform.w * aspectRatio);
+    var progress = 1.0;
+    if (isBrittle && platform.dissolving) {
+      progress = (platform.dissolveTimer / dissolveTime).clamp(0.0, 1.0);
+    }
+
+    if (progress <= 0) return;
+    final fallProgress = 1 - progress;
+    final fallOffset = brittleFallDistance * fallProgress * fallProgress;
+    final topInset = isBrittle ? visualHeight * brittleSpriteTopInset : 0.0;
+    final y = screenY - topInset + fallOffset;
+
+    if (progress < 1) {
+      canvas.saveLayer(
+        Rect.fromLTWH(platform.x, y, platform.w, visualHeight),
+        Paint()
+          ..color = Color.fromARGB((255 * progress).round(), 255, 255, 255),
+      );
+    }
+    sprite.render(
+      canvas,
+      position: Vector2(platform.x, y),
+      size: Vector2(platform.w, visualHeight),
+    );
+    if (progress < 1) {
+      canvas.restore();
+    }
+  }
+
   @override
   bool onDragStart(DragStartEvent event) {
+    super.onDragStart(event);
     if (gameOver) return true;
     if (!_started) {
       _started = true;
       pvy = jumpVel;
     }
-    _dragging = true;
     _dragX = event.localPosition.x;
     px = (_dragX - playerW / 2).clamp(0, size.x - playerW);
     return true;
@@ -448,13 +447,13 @@ class TrepaNubes extends PositionComponent
 
   @override
   bool onDragEnd(DragEndEvent event) {
-    _dragging = false;
+    super.onDragEnd(event);
     return true;
   }
 
   @override
   bool onDragCancel(DragCancelEvent event) {
-    _dragging = false;
+    super.onDragCancel(event);
     return true;
   }
 

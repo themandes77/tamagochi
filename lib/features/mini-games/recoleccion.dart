@@ -6,6 +6,7 @@ import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
+import 'package:flutter_application_1/features/mini-games/minigame_top_banner.dart';
 
 class _FallingItem {
   double x;
@@ -39,7 +40,11 @@ class Recoleccion extends PositionComponent
   final Random _random = Random();
   final List<_FallingItem> _items = [];
   final List<Sprite> _elementSprites = [];
-  final CoinBalanceHud _coinBalanceHud = CoinBalanceHud();
+  final MinigameTopBanner _topBanner = MinigameTopBanner(
+    gameNameFontSize: 13,
+    scoreFontSize: 18,
+    coinFontSize: 20,
+  );
   Sprite? _ntiSprite;
   Sprite? _coinSprite;
   Sprite? _heartSprite;
@@ -62,7 +67,7 @@ class Recoleccion extends PositionComponent
     _ntiSprite = await Sprite.load('nti.png');
     _coinSprite = await Sprite.load('ui/coin_star_v1.png');
     _heartSprite = await Sprite.load('ui/heart.png');
-    await _coinBalanceHud.load();
+    await _topBanner.load();
     _elementSprites.addAll([
       await Sprite.load('minigame-elements/Apple.png'),
       await Sprite.load('minigame-elements/Banana.png'),
@@ -83,7 +88,7 @@ class Recoleccion extends PositionComponent
   }
 
   void _spawnItem() {
-    final useCoin = _random.nextDouble() < 0.15;
+    final useCoin = _random.nextDouble() < 0.10;
     final sprite = useCoin
         ? _coinSprite
         : _elementSprites[_random.nextInt(_elementSprites.length)];
@@ -123,13 +128,11 @@ class Recoleccion extends PositionComponent
         item.caught = true;
         item.y = _groundY + item.size;
         if (item.isCoin) {
-          _earnedCoins++;
           CoinStore.instance.add(1);
         } else {
           _score++;
           if (_score % 20 == 0) {
             _earnedCoins++;
-            CoinStore.instance.add(1);
           }
         }
       }
@@ -148,6 +151,7 @@ class Recoleccion extends PositionComponent
     if (_lives == 0) {
       _gameOver = true;
       _items.clear();
+      CoinStore.instance.add(_earnedCoins);
     }
   }
 
@@ -182,8 +186,8 @@ class Recoleccion extends PositionComponent
       size: Vector2(playerWidth, playerHeight),
     );
 
-    _drawHud(canvas);
-    _coinBalanceHud.render(canvas, size);
+    _topBanner.render(canvas, size, gameName: 'Recolección', score: _score);
+    _drawLives(canvas);
 
     if (!_started) {
       canvas.drawRect(rect, Paint()..color = Colors.black54);
@@ -235,32 +239,17 @@ class Recoleccion extends PositionComponent
     );
   }
 
-  void _drawHud(Canvas canvas) {
-    final score = TextPainter(
-      text: TextSpan(
-        text: 'Puntuación: $_score',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 26,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    score.paint(canvas, const Offset(20, 20));
-    _drawLives(canvas);
-  }
-
   void _drawLives(Canvas canvas) {
     const heartSize = 26.0;
     const gap = 4.0;
     final totalWidth = _lives * heartSize + max(0, _lives - 1) * gap;
     final startX = size.x - CoinBalanceHud.margin - totalWidth;
+    final top = _topBanner.bottom(size) + 4;
 
     for (var i = 0; i < _lives; i++) {
       _heartSprite?.render(
         canvas,
-        position: Vector2(startX + i * (heartSize + gap), 52),
+        position: Vector2(startX + i * (heartSize + gap), top),
         size: Vector2.all(heartSize),
       );
     }
