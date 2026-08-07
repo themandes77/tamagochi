@@ -8,6 +8,8 @@ import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
 import 'package:flutter_application_1/features/mini-games/minigame_top_banner.dart';
 
+enum _ItemType { fruit, coin, like, dislike }
+
 class _FallingItem {
   double x;
   double y;
@@ -15,7 +17,7 @@ class _FallingItem {
   double phase;
   final Sprite sprite;
   final double size;
-  final bool isCoin;
+  final _ItemType type;
   bool caught;
 
   _FallingItem(
@@ -24,7 +26,7 @@ class _FallingItem {
     this.speed,
     this.sprite,
     this.size, {
-    required this.isCoin,
+    required this.type,
   }) : phase = 0,
        caught = false;
 }
@@ -36,6 +38,9 @@ class Recoleccion extends PositionComponent
   static const double groundHeight = 90;
   static const double itemRadius = 18;
   static const double spawnInterval = 0.65;
+  static const double coinChance = 0.10;
+  static const double likeChance = 0.10;
+  static const double dislikeChance = 0.10;
 
   final Random _random = Random();
   final List<_FallingItem> _items = [];
@@ -48,6 +53,8 @@ class Recoleccion extends PositionComponent
   Sprite? _ntiSprite;
   Sprite? _coinSprite;
   Sprite? _heartSprite;
+  Sprite? _likeSprite;
+  Sprite? _dislikeSprite;
 
   late double px;
   late double py;
@@ -55,6 +62,7 @@ class Recoleccion extends PositionComponent
   double _dragX = 0;
   int _score = 0;
   int _earnedCoins = 0;
+  int _pendingCoins = 0;
   int _lives = 3;
   bool _started = false;
   bool _gameOver = false;
@@ -67,6 +75,8 @@ class Recoleccion extends PositionComponent
     _ntiSprite = await Sprite.load('nti.png');
     _coinSprite = await Sprite.load('ui/coin_star_v1.png');
     _heartSprite = await Sprite.load('ui/heart.png');
+    _likeSprite = await Sprite.load('minigame-elements/like.png');
+    _dislikeSprite = await Sprite.load('minigame-elements/dislike.png');
     await _topBanner.load();
     _elementSprites.addAll([
       await Sprite.load('minigame-elements/Apple.png'),
@@ -88,10 +98,22 @@ class Recoleccion extends PositionComponent
   }
 
   void _spawnItem() {
-    final useCoin = _random.nextDouble() < 0.10;
-    final sprite = useCoin
-        ? _coinSprite
-        : _elementSprites[_random.nextInt(_elementSprites.length)];
+    final roll = _random.nextDouble();
+    late final _ItemType type;
+    late final Sprite? sprite;
+    if (roll < dislikeChance) {
+      type = _ItemType.dislike;
+      sprite = _dislikeSprite;
+    } else if (roll < dislikeChance + likeChance) {
+      type = _ItemType.like;
+      sprite = _likeSprite;
+    } else if (roll < dislikeChance + likeChance + coinChance) {
+      type = _ItemType.coin;
+      sprite = _coinSprite;
+    } else {
+      type = _ItemType.fruit;
+      sprite = _elementSprites[_random.nextInt(_elementSprites.length)];
+    }
     if (sprite == null) return;
 
     _items.add(
@@ -101,7 +123,7 @@ class Recoleccion extends PositionComponent
         155 + _random.nextDouble() * 100 + min(_score * 2.0, 150),
         sprite,
         itemRadius * 2,
-        isCoin: useCoin,
+        type: type,
       ),
     );
   }
@@ -127,13 +149,22 @@ class Recoleccion extends PositionComponent
       if (playerRect.overlaps(itemRect)) {
         item.caught = true;
         item.y = _groundY + item.size;
-        if (item.isCoin) {
-          CoinStore.instance.add(1);
-        } else {
-          _score++;
-          if (_score % 20 == 0) {
-            _earnedCoins++;
-          }
+        switch (item.type) {
+          case _ItemType.coin:
+            
+            CoinStore.instance.add(1);
+            break;
+          case _ItemType.fruit:
+          case _ItemType.like:
+            _score++;
+            if (_score % 20 == 0) {
+              _earnedCoins++;
+              _pendingCoins++;
+            }
+            break;
+          case _ItemType.dislike:
+            _lives = max(0, _lives - 1);
+            break;
         }
       }
     }
@@ -141,7 +172,9 @@ class Recoleccion extends PositionComponent
     final missedItems = _items
         .where(
           (item) =>
-              !item.isCoin && !item.caught && item.y - item.size / 2 > _groundY,
+              item.type == _ItemType.fruit &&
+              !item.caught &&
+              item.y - item.size / 2 > _groundY,
         )
         .length;
     if (missedItems > 0) {
@@ -149,9 +182,10 @@ class Recoleccion extends PositionComponent
     }
     _items.removeWhere((item) => item.y - item.size / 2 > _groundY);
     if (_lives == 0) {
+      CoinStore.instance.add(_pendingCoins);
+      _pendingCoins = 0;
       _gameOver = true;
       _items.clear();
-      CoinStore.instance.add(_earnedCoins);
     }
   }
 
@@ -297,6 +331,7 @@ class Recoleccion extends PositionComponent
   bool onTapDown(TapDownEvent event) {
     if (_gameOver) {
       removeFromParent();
+      CoinStore.instance.add(_earnedCoins);
       return true;
     }
     _start();
