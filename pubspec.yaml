@@ -83,7 +83,7 @@ flutter:
   fonts:
     - family: Fredoka
       fonts:
-        - asset: assets/images/fonts/Fredoka-Variable.ttf
+        - asset: assets/fonts/Fredoka-Variable.ttf
 
   # fonts:
   #   - family: Schyler

@@ -4,6 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/coins.dart';
+import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
 
 enum _PlatformType { normal, moving, dissolving }
 
@@ -71,18 +72,19 @@ class TrepaNubes extends PositionComponent
   final Random _random = Random();
   final List<_Platform> _platforms = [];
   final List<_Coin> _coins = [];
-  int _coinsCollected = 0;
   int _platformsSinceCoin = 0;
   int _nextCoinInterval = 0;
   _Platform? _standingOn;
   Sprite? _ntiSprite;
   Sprite? _coinSprite;
+  final CoinBalanceHud _coinBalanceHud = CoinBalanceHud();
 
   @override
   FutureOr<void> onLoad() async {
     size = findGame()!.size;
     _ntiSprite = await Sprite.load('nti.png');
     _coinSprite = await Sprite.load('ui/coin_star_v1.png');
+    await _coinBalanceHud.load();
     _nextCoinInterval = 50 + _random.nextInt(21);
 
     _platforms.add(
@@ -244,7 +246,6 @@ class TrepaNubes extends PositionComponent
       final r = _Coin.radius + playerW / 2;
       if (dx * dx + dy * dy <= r * r) {
         coin.collected = true;
-        _coinsCollected++;
         CoinStore.instance.add(1);
       }
     }
@@ -371,27 +372,7 @@ class TrepaNubes extends PositionComponent
     )..layout();
     scoreTp.paint(canvas, Offset((size.x - scoreTp.width) / 2, 16));
 
-    final coinCountIcon = Offset(size.x - 52, 30);
-    _coinSprite?.render(
-      canvas,
-      position: Vector2(coinCountIcon.dx - 13, coinCountIcon.dy - 13),
-      size: Vector2.all(26),
-    );
-    final coinCountTp = TextPainter(
-      text: TextSpan(
-        text: '$_coinsCollected',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 26,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    coinCountTp.paint(
-      canvas,
-      Offset(size.x - 52 - coinCountTp.width - 14, 30 - coinCountTp.height / 2),
-    );
+    _coinBalanceHud.render(canvas, size);
 
     if (!_started) {
       canvas.drawRect(rect, Paint()..color = Colors.black54);

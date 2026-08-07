@@ -5,6 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/coins.dart';
+import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
 
 class _FallingItem {
   double x;
@@ -13,8 +14,18 @@ class _FallingItem {
   double phase;
   final Sprite sprite;
   final double size;
+  final bool isCoin;
+  bool caught;
 
-  _FallingItem(this.x, this.y, this.speed, this.sprite, this.size) : phase = 0;
+  _FallingItem(
+    this.x,
+    this.y,
+    this.speed,
+    this.sprite,
+    this.size, {
+    required this.isCoin,
+  }) : phase = 0,
+       caught = false;
 }
 
 class Recoleccion extends PositionComponent
@@ -28,15 +39,20 @@ class Recoleccion extends PositionComponent
   final Random _random = Random();
   final List<_FallingItem> _items = [];
   final List<Sprite> _elementSprites = [];
+  final CoinBalanceHud _coinBalanceHud = CoinBalanceHud();
   Sprite? _ntiSprite;
   Sprite? _coinSprite;
+  Sprite? _heartSprite;
 
   late double px;
   late double py;
   double _spawnTimer = 0;
   double _dragX = 0;
-  int _collected = 0;
+  int _score = 0;
+  int _earnedCoins = 0;
+  int _lives = 3;
   bool _started = false;
+  bool _gameOver = false;
 
   double get _groundY => size.y - groundHeight;
 
@@ -45,6 +61,8 @@ class Recoleccion extends PositionComponent
     size = findGame()!.size;
     _ntiSprite = await Sprite.load('nti.png');
     _coinSprite = await Sprite.load('ui/coin_star_v1.png');
+    _heartSprite = await Sprite.load('ui/heart.png');
+    await _coinBalanceHud.load();
     _elementSprites.addAll([
       await Sprite.load('minigame-elements/Apple.png'),
       await Sprite.load('minigame-elements/Banana.png'),
@@ -65,7 +83,7 @@ class Recoleccion extends PositionComponent
   }
 
   void _spawnItem() {
-    final useCoin = _random.nextDouble() < 0.35;
+    final useCoin = _random.nextDouble() < 0.15;
     final sprite = useCoin
         ? _coinSprite
         : _elementSprites[_random.nextInt(_elementSprites.length)];
@@ -75,16 +93,17 @@ class Recoleccion extends PositionComponent
       _FallingItem(
         itemRadius + _random.nextDouble() * (size.x - itemRadius * 2),
         -itemRadius,
-        155 + _random.nextDouble() * 100 + min(_collected * 2.0, 150),
+        155 + _random.nextDouble() * 100 + min(_score * 2.0, 150),
         sprite,
         itemRadius * 2,
+        isCoin: useCoin,
       ),
     );
   }
 
   @override
   void update(double dt) {
-    if (!_started) return;
+    if (!_started || _gameOver) return;
 
     _spawnTimer += dt;
     while (_spawnTimer >= spawnInterval) {
@@ -101,13 +120,35 @@ class Recoleccion extends PositionComponent
         radius: item.size / 2,
       );
       if (playerRect.overlaps(itemRect)) {
+        item.caught = true;
         item.y = _groundY + item.size;
-        _collected++;
-        CoinStore.instance.add(1);
+        if (item.isCoin) {
+          _earnedCoins++;
+          CoinStore.instance.add(1);
+        } else {
+          _score++;
+          if (_score % 20 == 0) {
+            _earnedCoins++;
+            CoinStore.instance.add(1);
+          }
+        }
       }
     }
 
+    final missedItems = _items
+        .where(
+          (item) =>
+              !item.isCoin && !item.caught && item.y - item.size / 2 > _groundY,
+        )
+        .length;
+    if (missedItems > 0) {
+      _lives = max(0, _lives - missedItems);
+    }
     _items.removeWhere((item) => item.y - item.size / 2 > _groundY);
+    if (_lives == 0) {
+      _gameOver = true;
+      _items.clear();
+    }
   }
 
   @override
@@ -142,6 +183,7 @@ class Recoleccion extends PositionComponent
     );
 
     _drawHud(canvas);
+    _coinBalanceHud.render(canvas, size);
 
     if (!_started) {
       canvas.drawRect(rect, Paint()..color = Colors.black54);
@@ -150,6 +192,26 @@ class Recoleccion extends PositionComponent
         canvas,
         'Drag to start',
         size.y / 2,
+        20,
+        color: Colors.white70,
+      );
+    }
+
+    if (_gameOver) {
+      canvas.drawRect(rect, Paint()..color = Colors.black54);
+      _drawCenteredText(canvas, 'Fin de la partida', size.y / 2 - 90, 34);
+      _drawCenteredText(canvas, 'Puntuación: $_score', size.y / 2 - 30, 22);
+      _drawCenteredText(
+        canvas,
+        'Monedas ganadas: $_earnedCoins',
+        size.y / 2 + 5,
+        20,
+        color: Colors.white70,
+      );
+      _drawCenteredText(
+        canvas,
+        'Toca para salir',
+        size.y / 2 + 45,
         20,
         color: Colors.white70,
       );
@@ -176,7 +238,7 @@ class Recoleccion extends PositionComponent
   void _drawHud(Canvas canvas) {
     final score = TextPainter(
       text: TextSpan(
-        text: 'Monedas: $_collected',
+        text: 'Puntuación: $_score',
         style: const TextStyle(
           color: Colors.white,
           fontSize: 26,
@@ -186,14 +248,22 @@ class Recoleccion extends PositionComponent
       textDirection: TextDirection.ltr,
     )..layout();
     score.paint(canvas, const Offset(20, 20));
-    final hint = TextPainter(
-      text: const TextSpan(
-        text: 'Sin límite',
-        style: TextStyle(color: Colors.white70, fontSize: 18),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    hint.paint(canvas, Offset(size.x - hint.width - 20, 24));
+    _drawLives(canvas);
+  }
+
+  void _drawLives(Canvas canvas) {
+    const heartSize = 26.0;
+    const gap = 4.0;
+    final totalWidth = _lives * heartSize + max(0, _lives - 1) * gap;
+    final startX = size.x - CoinBalanceHud.margin - totalWidth;
+
+    for (var i = 0; i < _lives; i++) {
+      _heartSprite?.render(
+        canvas,
+        position: Vector2(startX + i * (heartSize + gap), 52),
+        size: Vector2.all(heartSize),
+      );
+    }
   }
 
   void _drawCenteredText(
@@ -221,6 +291,7 @@ class Recoleccion extends PositionComponent
   @override
   bool onDragStart(DragStartEvent event) {
     super.onDragStart(event);
+    if (_gameOver) return true;
     _start();
     _moveTo(event.localPosition.x);
     return true;
@@ -228,12 +299,17 @@ class Recoleccion extends PositionComponent
 
   @override
   bool onDragUpdate(DragUpdateEvent event) {
+    if (_gameOver) return true;
     _moveTo(_dragX + event.localDelta.x);
     return true;
   }
 
   @override
   bool onTapDown(TapDownEvent event) {
+    if (_gameOver) {
+      removeFromParent();
+      return true;
+    }
     _start();
     _moveTo(event.localPosition.x);
     return true;
