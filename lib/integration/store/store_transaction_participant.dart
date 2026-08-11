@@ -36,8 +36,9 @@ class StoreTransactionParticipant implements TransactionParticipant {
     return StoreSnapshot(
       coins: controller.coins,
       ownedItemIds: controller.ownedItemIds.toSet(),
-      equippedSkinId: controller.equippedSkinId,
+      equippedOutfitId: controller.equippedOutfitId,
       equippedThemeId: controller.equippedThemeId,
+      foodInventory: controller.foodInventory,
     );
   }
 }

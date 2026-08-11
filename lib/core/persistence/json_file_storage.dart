@@ -172,8 +172,26 @@ class JsonFileStorage {
     }
 
     if (!current.exists && !temporary.exists && !backup.exists) {
+      final hasArchivedCorruption =
+          await paths.currentCorrupt.exists() ||
+          await paths.backupCorrupt.exists() ||
+          await paths.temporaryCorrupt.exists();
+      if (!hasArchivedCorruption) {
+        return const JsonStorageReadResult(
+          status: JsonStorageReadStatus.missing,
+        );
+      }
+
+      // Si existen archivos archivados como corruptos, no debemos convertir
+      // el siguiente intento en un falso "missing". Esto es especialmente
+      // importante para el journal: un retry no puede vaciar silenciosamente
+      // evidencia de una transacción cuya atomicidad no pudo demostrarse.
+      _report(
+        code: 'archived_corruption_requires_recovery',
+        details: const <String, Object?>{},
+      );
       return const JsonStorageReadResult(
-        status: JsonStorageReadStatus.missing,
+        status: JsonStorageReadStatus.resetRequired,
       );
     }
 

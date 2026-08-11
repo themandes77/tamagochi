@@ -6,7 +6,15 @@ import 'package:flutter_application_1/features/store/domain/store_snapshot.dart'
 
 class StoreStoragePolicy implements JsonStoragePolicy {
   StoreStoragePolicy({JsonMigrationRegistry? migrations})
-      : migrations = migrations ?? JsonMigrationRegistry(currentVersion: 1);
+      : migrations =
+            migrations ??
+            JsonMigrationRegistry(
+              currentVersion: 3,
+              steps: <int, JsonMigrationStep>{
+                1: _migrateV1ToV2,
+                2: _migrateV2ToV3,
+              },
+            );
 
   final JsonMigrationRegistry migrations;
 
@@ -39,8 +47,44 @@ class StoreStoragePolicy implements JsonStoragePolicy {
       );
     }
 
-    _requireNonEmptyString(payload, 'equippedSkinId');
-    _requireNonEmptyString(payload, 'equippedThemeId');
+    final ownedIds = ownedItemIds.whereType<String>().toSet();
+    if (ownedIds.any((id) => !StoreSnapshot.supportedItemIds.contains(id))) {
+      throw const FormatException(
+        'ownedItemIds contiene personalizaciones no soportadas.',
+      );
+    }
+
+
+
+    final foodInventory = payload['foodInventory'];
+    if (foodInventory is! Map ||
+        foodInventory.entries.any((entry) =>
+            entry.key is! String ||
+            (entry.key as String).isEmpty ||
+            entry.value is! int ||
+            (entry.value as int) < 0)) {
+      throw const FormatException(
+        'foodInventory debe ser un mapa de cantidades no negativas.',
+      );
+    }
+
+    final outfitId = _requireNonEmptyString(payload, 'equippedOutfitId');
+    if (!StoreSnapshot.supportedOutfitIds.contains(outfitId)) {
+      throw const FormatException('equippedOutfitId no es válido.');
+    }
+
+    final themeId = _requireNonEmptyString(payload, 'equippedThemeId');
+    if (!StoreSnapshot.supportedThemeIds.contains(themeId)) {
+      throw const FormatException('equippedThemeId no es válido.');
+    }
+
+    if (!ownedIds.contains('outfit_$outfitId') ||
+        !ownedIds.contains('theme_$themeId')) {
+      throw const FormatException(
+        'La personalización equipada debe pertenecer al inventario.',
+      );
+    }
+
     StoreSnapshot.fromJson(payload);
   }
 
@@ -75,8 +119,34 @@ class StoreStoragePolicy implements JsonStoragePolicy {
       for (final candidate in ordered) {
         final value = candidate.payload?['ownedItemIds'];
         if (value is List) {
-          final items = value.whereType<String>().where((id) => id.isNotEmpty);
-          final recovered = items.toSet();
+          final recovered = value
+              .whereType<String>()
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          if (recovered.isNotEmpty) {
+            return recovered;
+          }
+        }
+      }
+      return null;
+    }
+
+
+    Map<String, int>? findFoodInventory() {
+      for (final candidate in ordered) {
+        final value = candidate.payload?['foodInventory'];
+        if (value is Map) {
+          final recovered = <String, int>{};
+          for (final entry in value.entries) {
+            final key = entry.key;
+            final quantity = entry.value;
+            if (key is String &&
+                key.isNotEmpty &&
+                quantity is int &&
+                quantity >= 0) {
+              recovered[key] = quantity;
+            }
+          }
           if (recovered.isNotEmpty) {
             return recovered;
           }
@@ -101,39 +171,62 @@ class StoreStoragePolicy implements JsonStoragePolicy {
 
     final coins = findCoins();
     final ownedItems = findOwnedItems();
+    final equippedOutfitId = findString('equippedOutfitId');
     final equippedSkinId = findString('equippedSkinId');
     final equippedThemeId = findString('equippedThemeId');
+    final foodInventory = findFoodInventory();
 
     if (coins == null &&
         ownedItems == null &&
+        equippedOutfitId == null &&
         equippedSkinId == null &&
-        equippedThemeId == null) {
+        equippedThemeId == null &&
+        foodInventory == null) {
       return null;
     }
 
     final initial = StoreSnapshot.initial();
-    final skinId = equippedSkinId ?? initial.equippedSkinId;
-    final themeId = equippedThemeId ?? initial.equippedThemeId;
-    final recoveredOwned = <String>{
-      ...initial.ownedItemIds,
-      ...?ownedItems,
-      'skin_$skinId',
-      'theme_$themeId',
+    final candidate = <String, Object?>{
+      'coins': coins ?? initial.coins,
+      'ownedItemIds': (ownedItems ?? initial.ownedItemIds).toList(),
+      if (equippedOutfitId != null) 'equippedOutfitId': equippedOutfitId,
+      if (equippedOutfitId == null && equippedSkinId != null)
+        'equippedSkinId': equippedSkinId,
+      if (equippedThemeId != null) 'equippedThemeId': equippedThemeId,
+      'foodInventory': foodInventory ?? initial.foodInventory,
     };
 
-    return StoreSnapshot(
-      coins: coins ?? initial.coins,
-      ownedItemIds: recoveredOwned,
-      equippedSkinId: skinId,
-      equippedThemeId: themeId,
-    ).toJson();
+    return StoreSnapshot.fromJson(candidate).toJson();
   }
 
-  void _requireNonEmptyString(Map<String, Object?> payload, String key) {
+  static Map<String, Object?> _migrateV1ToV2(
+    Map<String, Object?> payload,
+  ) {
+    // `fromJson` distingue el Store legacy (equippedSkinId) de una posible
+    // versión 1 ya integrada con outfits. Así la migración es segura para ambos
+    // estados de desarrollo y siempre produce el esquema canónico v2.
+    return StoreSnapshot.fromJson(payload).toJson();
+  }
+
+
+  static Map<String, Object?> _migrateV2ToV3(
+    Map<String, Object?> payload,
+  ) {
+    // Schema 3 incorpora inventario apilable de comida. No hay regalo inicial:
+    // tanto saves existentes como nuevas partidas empiezan con cantidades 0 si
+    // el payload anterior no tenía inventario de comida.
+    return StoreSnapshot.fromJson(<String, Object?>{
+      ...payload,
+      'foodInventory': payload['foodInventory'] ?? const <String, int>{},
+    }).toJson();
+  }
+
+  String _requireNonEmptyString(Map<String, Object?> payload, String key) {
     final value = payload[key];
     if (value is! String || value.isEmpty) {
       throw FormatException('$key debe ser un texto no vacío.');
     }
+    return value;
   }
 
   int? _extractInt(String raw, String key) {

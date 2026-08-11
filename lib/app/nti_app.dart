@@ -9,6 +9,8 @@ import 'package:flutter_application_1/core/persistence/storage_notice.dart';
 import 'package:flutter_application_1/core/time/pet_session_ticker.dart';
 import 'package:flutter_application_1/features/home/presentation/home_screen.dart';
 import 'package:flutter_application_1/integration/minigames/minigame_host_screen.dart';
+import 'package:flutter_application_1/integration/store/store_asset_precache.dart';
+import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/integration/store/store_host_screen.dart';
 
 class NtiApp extends StatefulWidget {
@@ -68,6 +70,9 @@ class _NtiAppState extends State<NtiApp>
       _startTicker();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showStorageNotices(_bootstrap.noticeCenter.drain());
+        if (mounted) {
+          unawaited(StoreAssetPrecache.precache(context));
+        }
       });
     } catch (error, stackTrace) {
       FlutterError.reportError(
@@ -157,19 +162,25 @@ class _NtiAppState extends State<NtiApp>
     await navigator.push<void>(
       MaterialPageRoute<void>(
         builder: (context) => MinigameHostScreen(
+          ntiOutfit: _bootstrap.storeController.selectedOutfit,
           onGameStartRequested: (costPolicy) async {
             final result = await _bootstrap.homeController.tryStartPlaying(
               costPolicy: costPolicy,
             );
             return result.accepted;
           },
-          onGameSessionEnded: _bootstrap.homeController.cancelPlaying,
+          onGameOverDetected:
+              _bootstrap.storeController.persistRuntimeCoins,
+          onGameSessionEnded: () async {
+            await _bootstrap.storeController.persistRuntimeCoins();
+            await _bootstrap.homeController.cancelPlaying();
+          },
         ),
       ),
     );
   }
 
-  Future<void> _openStore() async {
+  Future<void> _openStore({ShopItemKind initialKind = ShopItemKind.outfit}) async {
     final navigator = _navigatorKey.currentState;
     if (navigator == null) {
       return;
@@ -178,6 +189,7 @@ class _NtiAppState extends State<NtiApp>
       MaterialPageRoute<void>(
         builder: (context) => StoreHostScreen(
           controller: _bootstrap.storeController,
+          initialKind: initialKind,
         ),
       ),
     );
@@ -240,6 +252,7 @@ class _NtiAppState extends State<NtiApp>
     _stopTicker();
     _bootstrap.homeController.resetTransientUiForPause();
     await _bootstrap.petLifecycleCoordinator.pause();
+    await _bootstrap.storeController.persistRuntimeCoins();
   }
 
   Future<void> _resumeSession() async {
@@ -307,7 +320,8 @@ class _NtiAppState extends State<NtiApp>
       storeController: _bootstrap.storeController,
       preferencesController: _bootstrap.preferencesController,
       onPlayRequested: _openMinigames,
-      onStoreRequested: _openStore,
+      onStoreRequested: () => _openStore(),
+      onFoodStoreRequested: () => _openStore(initialKind: ShopItemKind.food),
       onExitRequested: _exitApplication,
     );
   }

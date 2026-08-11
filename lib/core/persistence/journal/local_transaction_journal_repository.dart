@@ -5,6 +5,15 @@ import 'package:flutter_application_1/core/persistence/journal/transaction_journ
 import 'package:flutter_application_1/core/persistence/journal/transaction_journal_repository.dart';
 import 'package:flutter_application_1/core/persistence/json_file_storage.dart';
 
+class TransactionJournalUnavailableException implements Exception {
+  const TransactionJournalUnavailableException();
+
+  @override
+  String toString() {
+    return 'No fue posible recuperar el journal transaccional de forma segura.';
+  }
+}
+
 class LocalTransactionJournalRepository
     implements TransactionJournalRepository {
   LocalTransactionJournalRepository({required this.storage});
@@ -42,10 +51,21 @@ class LocalTransactionJournalRepository
 
   Future<List<JournalTransaction>> _loadAllInternal() async {
     final result = await storage.read();
-    if (result.status == JsonStorageReadStatus.missing ||
-        result.status == JsonStorageReadStatus.resetRequired) {
-      await _saveAll(<JournalTransaction>[]);
-      return <JournalTransaction>[];
+    switch (result.status) {
+      case JsonStorageReadStatus.missing:
+        await _saveAll(<JournalTransaction>[]);
+        return <JournalTransaction>[];
+      case JsonStorageReadStatus.resetRequired:
+        // Un Pet o Store irrecuperable puede reiniciarse por módulo. El
+        // journal no: vaciarlo podría ocultar una transacción parcialmente
+        // aplicada y romper atomicidad entre módulos.
+        throw const TransactionJournalUnavailableException();
+      case JsonStorageReadStatus.current:
+      case JsonStorageReadStatus.migrated:
+      case JsonStorageReadStatus.temporaryRecovered:
+      case JsonStorageReadStatus.backupRecovered:
+      case JsonStorageReadStatus.partiallyRecovered:
+        break;
     }
 
     final values = result.payload?['transactions'];

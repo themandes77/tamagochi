@@ -10,15 +10,23 @@ class JournalParticipantRecord {
     required this.beforeChecksum,
     required this.targetChecksum,
     required this.targetPayload,
+    this.beforePayload,
     this.status = JournalParticipantStatus.pending,
     this.appliedAt,
   });
 
   factory JournalParticipantRecord.fromJson(Map<String, Object?> json) {
+    final rawBeforePayload = json['beforePayload'];
     return JournalParticipantRecord(
       participantKey: _readString(json, 'participantKey'),
       beforeChecksum: _readString(json, 'beforeChecksum'),
       targetChecksum: _readString(json, 'targetChecksum'),
+      beforePayload: rawBeforePayload == null
+          ? null
+          : requireStringObjectMap(
+              rawBeforePayload,
+              description: 'beforePayload',
+            ),
       targetPayload: requireStringObjectMap(
         json['targetPayload'],
         description: 'targetPayload',
@@ -31,6 +39,12 @@ class JournalParticipantRecord {
   }
 
   final String participantKey;
+
+  /// Payload anterior a la transacción.
+  ///
+  /// Es nullable únicamente para journals schema 1 migrados. Las nuevas
+  /// transacciones schema 2 siempre lo guardan para permitir rollback real.
+  final Map<String, Object?>? beforePayload;
   final String beforeChecksum;
   final String targetChecksum;
   final Map<String, Object?> targetPayload;
@@ -38,11 +52,18 @@ class JournalParticipantRecord {
   final DateTime? appliedAt;
 
   JournalParticipantRecord copyWith({
+    Map<String, Object?>? beforePayload,
+    bool replaceBeforePayload = false,
     JournalParticipantStatus? status,
     DateTime? appliedAt,
   }) {
     return JournalParticipantRecord(
       participantKey: participantKey,
+      beforePayload: replaceBeforePayload
+          ? beforePayload
+          : this.beforePayload == null
+              ? null
+              : Map<String, Object?>.from(this.beforePayload!),
       beforeChecksum: beforeChecksum,
       targetChecksum: targetChecksum,
       targetPayload: Map<String, Object?>.from(targetPayload),
@@ -54,6 +75,7 @@ class JournalParticipantRecord {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'participantKey': participantKey,
+      'beforePayload': beforePayload,
       'beforeChecksum': beforeChecksum,
       'targetChecksum': targetChecksum,
       'targetPayload': targetPayload,

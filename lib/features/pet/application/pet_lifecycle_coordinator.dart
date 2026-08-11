@@ -23,17 +23,59 @@ class PetLifecycleCoordinator {
   final PetRules rules;
 
   DateTime? _wallCursor;
+  bool _durableStateLoaded = false;
   bool _initialized = false;
   Future<void> _saveTail = Future<void>.value();
+  Future<void> _exclusiveMutationTail = Future<void>.value();
+  bool _exclusiveMutationActive = false;
+  Duration _deferredElapsed = Duration.zero;
 
   bool get isInitialized => _initialized;
+  bool get isDurableStateLoaded => _durableStateLoaded;
 
+  /// Compatibilidad para pruebas/hosts simples que no usan journal externo.
+  ///
+  /// El bootstrap real usa explícitamente las dos fases para recuperar primero
+  /// las transacciones pendientes y aplicar después el deterioro offline.
   Future<void> initialize() async {
+    await loadDurableState();
+    await activateRuntimeAfterRecovery();
+  }
+
+  /// Carga exactamente el estado durable de Pet sin modificarlo.
+  ///
+  /// No aplica deterioro offline, no cambia lastSavedAt y no crea un nuevo
+  /// checkpoint. Así el journal puede comparar sus checksums contra la misma
+  /// línea base que existía cuando se interrumpió una transacción.
+  Future<void> loadDurableState() async {
+    if (_durableStateLoaded) {
+      return;
+    }
     final now = clock.nowUtc();
     final loaded = await repository.load();
     final state = loaded ?? PetState.initial(nowUtc: now, rules: rules);
     controller.replaceState(state);
+    _wallCursor = state.lastSavedAt.toUtc();
+    _durableStateLoaded = true;
+  }
 
+  /// Activa el runtime una vez que el journal quedó reconciliado.
+  ///
+  /// El deterioro offline se calcula sobre el estado final recuperado (before
+  /// o target, según corresponda), nunca sobre un estado que luego el journal
+  /// deba reemplazar.
+  Future<void> activateRuntimeAfterRecovery() async {
+    if (_initialized) {
+      return;
+    }
+    if (!_durableStateLoaded) {
+      throw StateError(
+        'Pet debe cargar su estado durable antes de activar el runtime.',
+      );
+    }
+
+    final now = clock.nowUtc();
+    final state = controller.state;
     final offlineElapsed = _positiveDifference(now, state.lastSavedAt);
     controller.applyOfflineDecay(offlineElapsed);
     controller.updateLastSavedAt(now);
@@ -54,6 +96,7 @@ class PetLifecycleCoordinator {
 
   Future<CareActionResult> stopCleaning() async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     _syncToWallClock();
     final result = controller.stopCleaning();
     if (result == CareActionResult.interrupted) {
@@ -69,6 +112,7 @@ class PetLifecycleCoordinator {
 
   Future<CareActionResult> stopResting() async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     _syncToWallClock();
     final result = controller.stopResting();
     if (result == CareActionResult.interrupted) {
@@ -81,6 +125,7 @@ class PetLifecycleCoordinator {
     required GameCostPolicy costPolicy,
   }) async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     _syncToWallClock();
     final result = controller.startPlaying(costPolicy: costPolicy);
     if (result == CareActionResult.started) {
@@ -93,6 +138,7 @@ class PetLifecycleCoordinator {
     required double funGained,
   }) async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     final result = controller.finishPlaying(funGained: funGained);
     if (result == CareActionResult.completed) {
       await saveCheckpoint();
@@ -102,6 +148,7 @@ class PetLifecycleCoordinator {
 
   Future<CareActionResult> cancelPlaying() async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     final result = controller.cancelPlaying();
     if (result == CareActionResult.interrupted) {
       await saveCheckpoint();
@@ -111,6 +158,27 @@ class PetLifecycleCoordinator {
 
   PetAdvanceOutcome advance(Duration elapsed) {
     _requireInitialized();
+    if (elapsed < Duration.zero) {
+      throw ArgumentError.value(
+        elapsed,
+        'elapsed',
+        'El tiempo transcurrido no puede ser negativo.',
+      );
+    }
+    if (elapsed == Duration.zero) {
+      return const PetAdvanceOutcome();
+    }
+
+    // Durante una mutación transaccional no permitimos que el ticker cambie
+    // el payload de Pet. El tiempo no se pierde: se acumula y se aplica apenas
+    // termina la sección exclusiva. El cursor sí avanza para que el reloj de
+    // pared y el ticker sigan sobre una misma línea temporal.
+    if (_exclusiveMutationActive) {
+      _deferredElapsed += elapsed;
+      _wallCursor = (_wallCursor ?? clock.nowUtc()).add(elapsed);
+      return const PetAdvanceOutcome();
+    }
+
     final outcome = controller.advance(elapsed);
     _wallCursor = (_wallCursor ?? clock.nowUtc()).add(elapsed);
     if (outcome.requiresCheckpoint) {
@@ -119,14 +187,57 @@ class PetLifecycleCoordinator {
     return outcome;
   }
 
+  /// Ejecuta una mutación que necesita una fotografía estable de Pet.
+  ///
+  /// El ticker puede seguir emitiendo frames, pero sus deltas se difieren
+  /// mientras [operation] trabaja. Antes de abrir la sección exclusiva se
+  /// sincroniza y persiste una línea base durable; al salir se reaplica todo
+  /// el tiempo diferido sobre el estado resultante de la operación.
+  Future<T> runExclusiveMutation<T>(Future<T> Function() operation) {
+    final completer = Completer<T>();
+    _exclusiveMutationTail = _exclusiveMutationTail.then((_) async {
+      _requireInitialized();
+
+      // Ningún save anterior puede quedar mutando lastSavedAt mientras la
+      // transacción toma su baseline.
+      await _saveTail;
+      _syncToWallClock();
+
+      _exclusiveMutationActive = true;
+      _deferredElapsed = Duration.zero;
+      try {
+        // La línea base debe existir en disco antes de que el journal calcule
+        // checksums. _enqueueSave sabe no mover _wallCursor durante el lock.
+        await _enqueueSave();
+        completer.complete(await operation());
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      } finally {
+        final deferred = _deferredElapsed;
+        _deferredElapsed = Duration.zero;
+        _exclusiveMutationActive = false;
+
+        if (deferred > Duration.zero) {
+          final outcome = controller.advance(deferred);
+          if (outcome.requiresCheckpoint) {
+            unawaited(_enqueueSave());
+          }
+        }
+      }
+    });
+    return completer.future;
+  }
+
   Future<void> saveCheckpoint() async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     _syncToWallClock();
     await _enqueueSave();
   }
 
   Future<void> pause() async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     _syncToWallClock();
     controller.resetTransientState();
     await _enqueueSave();
@@ -134,6 +245,7 @@ class PetLifecycleCoordinator {
 
   Future<void> resume() async {
     _requireInitialized();
+    await _waitForExclusiveMutation();
     final now = clock.nowUtc();
     final elapsed = _positiveDifference(now, controller.state.lastSavedAt);
     controller.applyOfflineDecay(elapsed);
@@ -143,10 +255,18 @@ class PetLifecycleCoordinator {
   }
 
   Future<void> flushPendingSaves() async {
+    await _waitForExclusiveMutation();
     await _saveTail;
   }
 
+  Future<void> _waitForExclusiveMutation() async {
+    await _exclusiveMutationTail;
+  }
+
   void _syncToWallClock() {
+    if (_exclusiveMutationActive) {
+      return;
+    }
     final now = clock.nowUtc();
     final cursor = _wallCursor ?? now;
     final delta = _positiveDifference(now, cursor);
@@ -162,7 +282,9 @@ class PetLifecycleCoordinator {
       try {
         final now = clock.nowUtc();
         controller.updateLastSavedAt(now);
-        _wallCursor = now;
+        if (!_exclusiveMutationActive) {
+          _wallCursor = now;
+        }
         await repository.save(controller.state);
         completer.complete();
       } catch (error, stackTrace) {

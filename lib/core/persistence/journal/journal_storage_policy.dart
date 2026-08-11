@@ -5,7 +5,7 @@ import 'package:flutter_application_1/core/persistence/storage_migration.dart';
 
 class JournalStoragePolicy implements JsonStoragePolicy {
   JournalStoragePolicy({JsonMigrationRegistry? migrations})
-    : migrations = migrations ?? JsonMigrationRegistry(currentVersion: 1);
+    : migrations = migrations ?? _defaultMigrations();
 
   final JsonMigrationRegistry migrations;
 
@@ -51,7 +51,8 @@ class JournalStoragePolicy implements JsonStoragePolicy {
 
     final recovered = <String, JournalTransaction>{};
     for (final candidate in ordered) {
-      final transactions = candidate.payload?['transactions'];
+      final candidatePayload = _normalizeCandidatePayload(candidate);
+      final transactions = candidatePayload?['transactions'];
       if (transactions is! List) {
         continue;
       }
@@ -74,6 +75,70 @@ class JournalStoragePolicy implements JsonStoragePolicy {
       'transactions': recovered.values
           .map((transaction) => transaction.toJson())
           .toList(growable: false),
+    };
+  }
+
+  Map<String, Object?>? _normalizeCandidatePayload(
+    JsonRecoveryCandidate candidate,
+  ) {
+    final payload = candidate.payload;
+    if (payload == null) {
+      return null;
+    }
+
+    final version = candidate.schemaVersion;
+    if (version == null || version == currentSchemaVersion) {
+      return payload;
+    }
+
+    try {
+      return migrate(fromVersion: version, payload: payload);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static JsonMigrationRegistry _defaultMigrations() {
+    return JsonMigrationRegistry(
+      currentVersion: 2,
+      steps: <int, JsonMigrationStep>{
+        1: _migrateV1ToV2,
+      },
+    );
+  }
+
+  static JsonPayload _migrateV1ToV2(JsonPayload payload) {
+    final values = payload['transactions'];
+    if (values is! List) {
+      return Map<String, Object?>.from(payload);
+    }
+
+    final migratedTransactions = <Object?>[];
+    for (final value in values) {
+      if (value is! Map) {
+        migratedTransactions.add(value);
+        continue;
+      }
+      final transaction = Map<String, Object?>.from(value.cast<String, Object?>());
+      final participants = transaction['participants'];
+      if (participants is List) {
+        transaction['participants'] = participants.map<Object?>((participant) {
+          if (participant is! Map) {
+            return participant;
+          }
+          final record = Map<String, Object?>.from(
+            participant.cast<String, Object?>(),
+          );
+          record.putIfAbsent('beforePayload', () => null);
+          return record;
+        }).toList(growable: false);
+      }
+      migratedTransactions.add(transaction);
+    }
+
+    return <String, Object?>{
+      ...payload,
+      'transactions': migratedTransactions,
     };
   }
 }

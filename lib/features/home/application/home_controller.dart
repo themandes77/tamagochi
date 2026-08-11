@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
 import 'package:flutter_application_1/features/home/application/care_tool.dart';
 import 'package:flutter_application_1/features/home/application/home_notice.dart';
 import 'package:flutter_application_1/features/pet/application/pet_controller.dart';
@@ -12,18 +15,25 @@ class HomeController extends ChangeNotifier {
   HomeController({
     required this.petController,
     required this.lifecycleCoordinator,
+    required this.feedingCoordinator,
   }) {
     petController.addListener(_forwardPetChange);
   }
 
   final PetController petController;
   final PetLifecycleCoordinator lifecycleCoordinator;
+  final FeedingCoordinator feedingCoordinator;
 
   CareTool _selectedTool = CareTool.none;
+  String? _selectedFoodId;
   bool _needsExpanded = true;
   bool _cleaningGestureHadContact = false;
+  int _foodSelectionRevision = 0;
+  Future<void> _foodTapTail = Future<void>.value();
 
   CareTool get selectedTool => _selectedTool;
+  String? get selectedFoodId => _selectedFoodId;
+  bool get hasSelectedFood => _selectedFoodId != null;
   bool get needsExpanded => _needsExpanded;
   PetState get petState => petController.state;
   PetActivity get activity => petController.activity;
@@ -50,20 +60,96 @@ class HomeController extends ChangeNotifier {
       await finishCleaningGesture();
     }
 
+    if (tool != CareTool.food) {
+      _selectedFoodId = null;
+    }
     _selectedTool = _selectedTool == tool ? CareTool.none : tool;
     notifyListeners();
   }
 
-  HomeNotice? handlePetTap() {
-    if (_selectedTool != CareTool.food) {
-      return null;
+  /// Prepara el Home para mostrar el inventario de comida sin alterar una
+  /// comida que ya estuviera seleccionada.
+  Future<bool> prepareForFoodInventory() async {
+    if (!canUseCareActions) {
+      return false;
     }
+    if (isCleaning) {
+      await finishCleaningGesture();
+    }
+    if (_selectedTool == CareTool.soap) {
+      _selectedTool = CareTool.none;
+      notifyListeners();
+    }
+    return true;
+  }
 
-    final result = lifecycleCoordinator.startFeeding();
-    return switch (result) {
-      CareActionResult.alreadySatisfied => HomeNotice.alreadySatisfied,
-      _ => null,
-    };
+  void toggleFoodSelection(String foodId) {
+    if (foodId.isEmpty || !canUseCareActions) {
+      return;
+    }
+    _foodSelectionRevision++;
+    if (_selectedFoodId == foodId) {
+      _selectedFoodId = null;
+      _selectedTool = CareTool.none;
+    } else {
+      _selectedFoodId = foodId;
+      _selectedTool = CareTool.food;
+    }
+    notifyListeners();
+  }
+
+  Future<FoodFeedResult> handleSelectedFoodTap() {
+    final foodId = _selectedFoodId;
+    final revision = _foodSelectionRevision;
+    final completer = Completer<FoodFeedResult>();
+
+    // Serializamos el gesto completo (validación + consumo + actualización de
+    // selección), no solo la escritura. Así cada tap puede ser válido, pero
+    // siempre ve el resultado real del tap anterior.
+    _foodTapTail = _foodTapTail.then((_) async {
+      try {
+        if (!_isFoodSelectionCurrent(foodId, revision)) {
+          completer.complete(
+            const FoodFeedResult(status: FoodFeedStatus.staleSelection),
+          );
+          return;
+        }
+
+        final result = await feedingCoordinator.consume(foodId);
+        final selectionStillCurrent = _isFoodSelectionCurrent(
+          foodId,
+          revision,
+        );
+
+        if (selectionStillCurrent) {
+          final shouldClear = switch (result.status) {
+            FoodFeedStatus.tooFull ||
+            FoodFeedStatus.outOfStock ||
+            FoodFeedStatus.itemNotFound ||
+            FoodFeedStatus.noSelection => true,
+            FoodFeedStatus.success => result.remainingQuantity <= 0,
+            FoodFeedStatus.blocked || FoodFeedStatus.staleSelection => false,
+          };
+
+          if (shouldClear) {
+            _clearSelectedTool();
+          }
+        }
+
+        completer.complete(result);
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+
+    return completer.future;
+  }
+
+  bool _isFoodSelectionCurrent(String? foodId, int revision) {
+    return foodId != null &&
+        _foodSelectionRevision == revision &&
+        _selectedFoodId == foodId &&
+        _selectedTool == CareTool.food;
   }
 
   HomeActionResult beginCleaningContact() {
@@ -180,11 +266,16 @@ class HomeController extends ChangeNotifier {
   }
 
   void _clearSelectedTool() {
-    if (_selectedTool == CareTool.none) {
-      return;
+    final hadSelection =
+        _selectedTool != CareTool.none || _selectedFoodId != null;
+    if (_selectedFoodId != null || _selectedTool == CareTool.food) {
+      _foodSelectionRevision++;
     }
     _selectedTool = CareTool.none;
-    notifyListeners();
+    _selectedFoodId = null;
+    if (hadSelection) {
+      notifyListeners();
+    }
   }
 
   void _forwardPetChange() {

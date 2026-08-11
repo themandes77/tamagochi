@@ -4,6 +4,8 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/app/settings/app_preferences_controller.dart';
+import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
+import 'package:flutter_application_1/features/food/presentation/food_inventory_overlay.dart';
 import 'package:flutter_application_1/features/home/application/care_tool.dart';
 import 'package:flutter_application_1/features/home/application/home_controller.dart';
 import 'package:flutter_application_1/features/home/application/home_notice.dart';
@@ -11,7 +13,7 @@ import 'package:flutter_application_1/features/home/presentation/widgets/home_ac
 import 'package:flutter_application_1/features/home/presentation/widgets/home_top_bar.dart';
 import 'package:flutter_application_1/features/home/presentation/widgets/need_status_card.dart';
 import 'package:flutter_application_1/features/home/presentation/widgets/pause_overlay.dart';
-import 'package:flutter_application_1/features/home/presentation/widgets/pet_visual_slot.dart';
+import 'package:flutter_application_1/features/home/presentation/widgets/pet_message_bubble.dart';
 import 'package:flutter_application_1/features/pet/application/pet_controller.dart';
 import 'package:flutter_application_1/features/pet/presentation/home_pet_scene.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
@@ -26,6 +28,7 @@ class HomeScreen extends StatefulWidget {
     required this.onExitRequested,
     this.onPlayRequested,
     this.onStoreRequested,
+    this.onFoodStoreRequested,
     super.key,
   });
 
@@ -36,6 +39,7 @@ class HomeScreen extends StatefulWidget {
   final Future<void> Function() onExitRequested;
   final Future<void> Function()? onPlayRequested;
   final Future<void> Function()? onStoreRequested;
+  final Future<void> Function()? onFoodStoreRequested;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -44,24 +48,26 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final HomePetScene _scene;
   Timer? _messageTimer;
-  String? _petMessage;
+  String? _systemMessage;
   bool _pauseOpen = false;
+  bool _foodInventoryOpen = false;
   bool _exitRequested = false;
 
   @override
   void initState() {
     super.initState();
     _scene = HomePetScene(
-      petController: widget.petController,
       storeController: widget.storeController,
-      onPetTap: _handlePetTap,
+      onFoodTap: _handleFoodTap,
       onCleaningContactStarted: _beginCleaningContact,
-      onCleaningContactStopped:
-          widget.homeController.suspendCleaningContact,
+      onCleaningContactStopped: widget.homeController.suspendCleaningContact,
       onCleaningGestureEnded: widget.homeController.finishCleaningGesture,
+      isFoodToolSelected: () =>
+          widget.homeController.selectedTool == CareTool.food,
       isCleaningToolSelected: () =>
           widget.homeController.selectedTool == CareTool.soap,
       isCleaningActive: () => widget.homeController.isCleaning,
+      isFullyClean: () => widget.homeController.petState.cleanliness >= 9.999,
     );
   }
 
@@ -71,8 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _handlePetTap() {
-    _showNotice(widget.homeController.handlePetTap());
+  Future<FoodFeedResult> _handleFoodTap() {
+    return widget.homeController.handleSelectedFoodTap();
   }
 
   bool _beginCleaningContact() {
@@ -81,11 +87,48 @@ class _HomeScreenState extends State<HomeScreen> {
     return result.accepted;
   }
 
+  Future<void> _openFoodInventory() async {
+    if (_foodInventoryOpen) {
+      return;
+    }
+    final allowed = await widget.homeController.prepareForFoodInventory();
+    if (!allowed || !mounted) {
+      return;
+    }
+    setState(() {
+      _foodInventoryOpen = true;
+    });
+  }
+
+  void _closeFoodInventory() {
+    if (!_foodInventoryOpen || !mounted) {
+      return;
+    }
+    setState(() {
+      _foodInventoryOpen = false;
+    });
+  }
+
+  void _selectFood(String foodId) {
+    widget.homeController.toggleFoodSelection(foodId);
+    _closeFoodInventory();
+  }
+
+  Future<void> _openFoodStore() async {
+    final callback = widget.onFoodStoreRequested ?? widget.onStoreRequested;
+    if (callback == null) {
+      return;
+    }
+    _closeFoodInventory();
+    await _requestStore(callback);
+  }
+
   Future<void> _requestPlay() async {
     final callback = widget.onPlayRequested;
     if (callback == null) {
       return;
     }
+    _closeFoodInventory();
     final result = await widget.homeController.prepareForGameSelection();
     _showNotice(result.notice);
     if (!result.accepted) {
@@ -94,19 +137,27 @@ class _HomeScreenState extends State<HomeScreen> {
     await callback();
   }
 
-  Future<void> _requestStore() async {
-    final callback = widget.onStoreRequested;
+  Future<void> _requestStore([Future<void> Function()? requestedCallback]) async {
+    final callback = requestedCallback ?? widget.onStoreRequested;
     if (callback == null) {
       return;
     }
+    _closeFoodInventory();
     final allowed = await widget.homeController.prepareForNavigation();
     if (!allowed) {
       return;
     }
-    await callback();
+
+    _scene.pauseEngine();
+    try {
+      await callback();
+    } finally {
+      _scene.resumeEngine();
+    }
   }
 
   Future<void> _toggleRest() async {
+    _closeFoodInventory();
     final notice = await widget.homeController.toggleResting();
     _showNotice(notice);
   }
@@ -115,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_pauseOpen) {
       return;
     }
+    _closeFoodInventory();
     await widget.homeController.prepareForPauseOverlay();
     if (!mounted) {
       return;
@@ -172,14 +224,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     _messageTimer?.cancel();
     setState(() {
-      _petMessage = _noticeText(notice);
+      _systemMessage = _noticeText(notice);
     });
     _messageTimer = Timer(const Duration(milliseconds: 1500), () {
       if (!mounted) {
         return;
       }
       setState(() {
-        _petMessage = null;
+        _systemMessage = null;
       });
     });
   }
@@ -204,7 +256,9 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: <Widget>[
-          Image.asset(AppUiAssets.homeBackground, fit: BoxFit.cover),
+          // Flame ocupa todo el Home: Azael conserva RoomBackground + Nti.
+          GameWidget(game: _scene),
+          // Nuestra composición Flutter permanece por encima.
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -238,7 +292,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: needHeight,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE8C9CF).withValues(alpha: 0.88),
+                            color: const Color(
+                              0xFFE8C9CF,
+                            ).withValues(alpha: 0.88),
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: Colors.white.withValues(alpha: 0.72),
@@ -253,7 +309,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 3,
+                            ),
                             child: AnimatedBuilder(
                               animation: widget.homeController,
                               builder: (context, _) => _buildNeedRow(),
@@ -261,13 +320,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      Expanded(
-                        child: PetVisualSlot(
-                          message: _petMessage,
-                          petVisual: GameWidget(game: _scene),
-                        ),
-                      ),
+                      // La zona central queda libre de widgets interceptores:
+                      // los taps llegan a Nti y los gestos de cuidado a Flame.
+                      const Expanded(child: SizedBox.expand()),
                       const SizedBox(height: 4),
                       SizedBox(
                         height: actionHeight,
@@ -282,6 +337,26 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
+          if (_systemMessage != null)
+            SafeArea(
+              child: Align(
+                alignment: const Alignment(0, -0.53),
+                child: IgnorePointer(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 300),
+                    child: PetMessageBubble(message: _systemMessage!),
+                  ),
+                ),
+              ),
+            ),
+          if (_foodInventoryOpen)
+            FoodInventoryOverlay(
+              storeController: widget.storeController,
+              selectedFoodId: widget.homeController.selectedFoodId,
+              onFoodSelected: _selectFood,
+              onOpenStore: () => unawaited(_openFoodStore()),
+              onClose: _closeFoodInventory,
+            ),
           if (_pauseOpen)
             PauseOverlay(
               preferencesController: widget.preferencesController,
@@ -354,9 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundAsset: AppUiAssets.actionFeed,
             enabled: controller.canUseCareActions,
             selected: controller.selectedTool == CareTool.food,
-            onPressed: () {
-              unawaited(controller.toggleTool(CareTool.food));
-            },
+            onPressed: () => unawaited(_openFoodInventory()),
           ),
         ),
         const SizedBox(width: 7),
@@ -367,6 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
             enabled: controller.canUseCareActions,
             selected: controller.selectedTool == CareTool.soap,
             onPressed: () {
+              _closeFoodInventory();
               unawaited(controller.toggleTool(CareTool.soap));
             },
           ),

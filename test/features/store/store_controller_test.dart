@@ -1,3 +1,5 @@
+import 'package:flutter_application_1/coins.dart';
+import 'package:flutter_application_1/features/food/domain/food_item.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/features/store/data/in_memory_store_repository.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
@@ -10,35 +12,37 @@ void main() {
     late StoreController controller;
 
     setUp(() async {
+      CoinStore.instance.balance = 0;
       repository = InMemoryStoreRepository();
       controller = StoreController(repository: repository);
       await controller.initialize();
     });
 
-    test('starts with the free skin and theme equipped', () {
-      expect(controller.coins, 200);
-      expect(controller.equippedSkinId, 'purple');
-      expect(controller.equippedThemeId, 'normal');
+    test('starts with Original outfit and theme equipped', () {
+      expect(controller.coins, 500);
+      expect(controller.equippedOutfitId, 'original');
+      expect(controller.equippedThemeId, 'original');
       expect(
         controller.ownedItemIds,
-        containsAll(['skin_purple', 'theme_normal']),
+        containsAll(['outfit_original', 'theme_original']),
       );
     });
 
-    test('purchases an item and deducts its price', () async {
-      final result = await controller.purchase('skin_blue');
+    test('purchases an item using the shared CoinStore balance', () async {
+      final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.success);
-      expect(controller.coins, 150);
-      expect(controller.ownedItemIds, contains('skin_blue'));
+      expect(controller.coins, 400);
+      expect(CoinStore.instance.balance, 400);
+      expect(controller.ownedItemIds, contains('outfit_anniversary'));
     });
 
     test('does not charge twice for the same item', () async {
-      await controller.purchase('skin_blue');
-      final result = await controller.purchase('skin_blue');
+      await controller.purchase('outfit_anniversary');
+      final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.alreadyOwned);
-      expect(controller.coins, 150);
+      expect(controller.coins, 400);
     });
 
     test('rejects a purchase without enough coins', () async {
@@ -48,45 +52,83 @@ void main() {
       controller = StoreController(repository: repository);
       await controller.initialize();
 
-      final result = await controller.purchase('skin_blue');
+      final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.insufficientFunds);
       expect(controller.coins, 10);
-      expect(controller.ownedItemIds, isNot(contains('skin_blue')));
+      expect(controller.ownedItemIds, isNot(contains('outfit_anniversary')));
     });
 
     test('equips only owned items', () async {
-      expect(await controller.equip('skin_blue'), isFalse);
+      expect(await controller.equip('outfit_anniversary'), isFalse);
 
-      await controller.purchase('skin_blue');
+      await controller.purchase('outfit_anniversary');
 
-      expect(await controller.equip('skin_blue'), isTrue);
-      expect(controller.equippedSkinId, 'blue');
+      expect(await controller.equip('outfit_anniversary'), isTrue);
+      expect(controller.equippedOutfitId, 'anniversary');
     });
 
-    test(
-      'persists purchases and equipped items through the repository',
-      () async {
-        await controller.purchase('skin_blue');
-        await controller.equip('skin_blue');
+    test('persists purchases and equipped items through repository', () async {
+      await controller.purchase('outfit_anniversary');
+      await controller.equip('outfit_anniversary');
 
-        final restored = StoreController(repository: repository);
-        await restored.initialize();
+      final restored = StoreController(repository: repository);
+      await restored.initialize();
 
-        expect(restored.coins, 150);
-        expect(restored.equippedSkinId, 'blue');
-        expect(restored.ownedItemIds, contains('skin_blue'));
-      },
-    );
+      expect(restored.coins, 400);
+      expect(restored.equippedOutfitId, 'anniversary');
+      expect(restored.ownedItemIds, contains('outfit_anniversary'));
+    });
 
-    test('adds rewards from a minigame', () async {
+    test('persists coins added directly by a minigame', () async {
+      CoinStore.instance.add(7);
+      await controller.persistRuntimeCoins();
+
+      final restored = StoreController(repository: repository);
+      await restored.initialize();
+
+      expect(restored.coins, 507);
+    });
+
+    test('adds rewards through the Store API to the same CoinStore', () async {
       await controller.addCoins(25);
 
-      expect(controller.coins, 225);
+      expect(controller.coins, 525);
+      expect(CoinStore.instance.balance, 525);
     });
 
-    test('rejects invalid rewards', () {
-      expect(() => controller.addCoins(0), throwsArgumentError);
+
+
+    test('starts with an empty food inventory', () {
+      expect(controller.foodQuantity('food_1'), 0);
+      expect(controller.foodQuantity('food_2'), 0);
+      expect(controller.foodQuantity('food_3'), 0);
+    });
+
+    test('buys one food unit per tap and persists it immediately', () async {
+      final result = await controller.buyFood('food_2');
+
+      expect(result, FoodPurchaseResult.success);
+      expect(controller.coins, 497);
+      expect(controller.foodQuantity('food_2'), 1);
+
+      final restored = StoreController(repository: repository);
+      await restored.initialize();
+      expect(restored.coins, 497);
+      expect(restored.foodQuantity('food_2'), 1);
+    });
+
+    test('food can be purchased repeatedly while funds are sufficient', () async {
+      await controller.buyFood('food_1');
+      await controller.buyFood('food_1');
+      await controller.buyFood('food_1');
+
+      expect(controller.coins, 497);
+      expect(controller.foodQuantity('food_1'), 3);
+    });
+
+    test('rejects invalid rewards', () async {
+      await expectLater(controller.addCoins(0), throwsArgumentError);
     });
   });
 }
