@@ -4,16 +4,18 @@ import 'package:flutter_application_1/features/pet/domain/pet_repository.dart';
 import 'package:flutter_application_1/features/pet/domain/pet_rules.dart';
 import 'package:flutter_application_1/features/pet/domain/pet_state.dart';
 
-class PetTransactionParticipant implements TransactionParticipant {
+class PetTransactionParticipant implements WriteAheadTransactionParticipant {
   PetTransactionParticipant({
     required this.controller,
     required this.repository,
     this.rules = const PetRules(),
+    this.onDurablePersisted,
   });
 
   final PetController controller;
   final PetRepository repository;
   final PetRules rules;
+  final void Function(PetState state)? onDurablePersisted;
 
   @override
   String get participantKey => 'pet';
@@ -29,7 +31,23 @@ class PetTransactionParticipant implements TransactionParticipant {
     if (state != controller.state) {
       controller.replaceState(state);
     }
-    await repository.save(controller.state);
+    await repository.save(state);
+    onDurablePersisted?.call(state);
+  }
+
+  @override
+  Future<void> applyRuntimePayload(Map<String, Object?> payload) async {
+    final state = PetState.fromJson(payload, rules: rules);
+    if (state != controller.state) {
+      controller.replaceState(state);
+    }
+  }
+
+  @override
+  Future<void> persistPayload(Map<String, Object?> payload) async {
+    final state = PetState.fromJson(payload, rules: rules);
+    await repository.save(state);
+    onDurablePersisted?.call(state);
   }
 
   @override

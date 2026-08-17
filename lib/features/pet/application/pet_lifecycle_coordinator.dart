@@ -23,6 +23,7 @@ class PetLifecycleCoordinator {
   final PetRules rules;
 
   DateTime? _wallCursor;
+  PetState? _durableState;
   bool _durableStateLoaded = false;
   bool _initialized = false;
   Future<void> _saveTail = Future<void>.value();
@@ -32,6 +33,14 @@ class PetLifecycleCoordinator {
 
   bool get isInitialized => _initialized;
   bool get isDurableStateLoaded => _durableStateLoaded;
+
+  PetState get durableState {
+    final state = _durableState;
+    if (state == null) {
+      throw StateError('Pet todavía no tiene una fotografía durable cargada.');
+    }
+    return state;
+  }
 
   /// Compatibilidad para pruebas/hosts simples que no usan journal externo.
   ///
@@ -55,6 +64,7 @@ class PetLifecycleCoordinator {
     final loaded = await repository.load();
     final state = loaded ?? PetState.initial(nowUtc: now, rules: rules);
     controller.replaceState(state);
+    _durableState = state;
     _wallCursor = state.lastSavedAt.toUtc();
     _durableStateLoaded = true;
   }
@@ -191,9 +201,14 @@ class PetLifecycleCoordinator {
   ///
   /// El ticker puede seguir emitiendo frames, pero sus deltas se difieren
   /// mientras [operation] trabaja. Antes de abrir la sección exclusiva se
-  /// sincroniza y persiste una línea base durable; al salir se reaplica todo
+  /// sincroniza el reloj; por defecto también persiste una línea base durable.
+  /// Write-ahead puede omitir ese checkpoint porque schema 3 guarda por
+  /// separado el before durable y el before lógico. Al salir se reaplica todo
   /// el tiempo diferido sobre el estado resultante de la operación.
-  Future<T> runExclusiveMutation<T>(Future<T> Function() operation) {
+  Future<T> runExclusiveMutation<T>(
+    Future<T> Function() operation, {
+    bool checkpointBaseline = true,
+  }) {
     final completer = Completer<T>();
     _exclusiveMutationTail = _exclusiveMutationTail.then((_) async {
       _requireInitialized();
@@ -206,9 +221,12 @@ class PetLifecycleCoordinator {
       _exclusiveMutationActive = true;
       _deferredElapsed = Duration.zero;
       try {
-        // La línea base debe existir en disco antes de que el journal calcule
-        // checksums. _enqueueSave sabe no mover _wallCursor durante el lock.
-        await _enqueueSave();
+        // La ruta tradicional checkpointa el baseline antes de abrir una
+        // transacción. Alimentar puede desactivarlo cuando usa write-ahead:
+        // el journal schema 3 distingue baseline durable y before lógico.
+        if (checkpointBaseline) {
+          await _enqueueSave();
+        }
         completer.complete(await operation());
       } catch (error, stackTrace) {
         completer.completeError(error, stackTrace);
@@ -226,6 +244,18 @@ class PetLifecycleCoordinator {
       }
     });
     return completer.future;
+  }
+
+  /// Notifica que una materialización transaccional ya quedó durable.
+  ///
+  /// No toca el estado runtime: éste puede haber seguido avanzando mientras el
+  /// snapshot comprometido se escribía en segundo plano.
+  void markTransactionSnapshotDurable(PetState state) {
+    final current = _durableState;
+    if (current == null ||
+        !state.lastSavedAt.toUtc().isBefore(current.lastSavedAt.toUtc())) {
+      _durableState = state;
+    }
   }
 
   Future<void> saveCheckpoint() async {
@@ -285,7 +315,9 @@ class PetLifecycleCoordinator {
         if (!_exclusiveMutationActive) {
           _wallCursor = now;
         }
-        await repository.save(controller.state);
+        final snapshot = controller.state;
+        await repository.save(snapshot);
+        _durableState = snapshot;
         completer.complete();
       } catch (error, stackTrace) {
         completer.completeError(error, stackTrace);

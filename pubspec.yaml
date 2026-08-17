@@ -64,6 +64,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/backgrounds/
+    - assets/images/minigame-elements/
     - assets/images/outfits/
     - assets/images/ui/
     - assets/ui/home/

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/pet/domain/game_cost_policy.dart';
 import 'package:flutter_application_1/integration/minigames/minigame_host_game.dart';
+import 'package:flutter_application_1/integration/minigames/minigame_session_result.dart';
 
 class MinigameHostScreen extends StatefulWidget {
   const MinigameHostScreen({
@@ -16,9 +17,11 @@ class MinigameHostScreen extends StatefulWidget {
   });
 
   final NtiOutfit ntiOutfit;
+
   final Future<bool> Function(GameCostPolicy costPolicy)
       onGameStartRequested;
-  final Future<void> Function() onGameOverDetected;
+  final Future<void> Function(MinigameSessionResult result)
+      onGameOverDetected;
   final Future<void> Function() onGameSessionEnded;
 
   @override

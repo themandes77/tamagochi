@@ -9,6 +9,8 @@ import 'package:flutter_application_1/core/persistence/storage_notice.dart';
 import 'package:flutter_application_1/core/time/pet_session_ticker.dart';
 import 'package:flutter_application_1/features/home/presentation/home_screen.dart';
 import 'package:flutter_application_1/integration/minigames/minigame_host_screen.dart';
+import 'package:flutter_application_1/integration/minigames/minigame_fun_reward_policy.dart';
+import 'package:flutter_application_1/integration/minigames/minigame_session_result.dart';
 import 'package:flutter_application_1/integration/store/store_asset_precache.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/integration/store/store_host_screen.dart';
@@ -169,8 +171,7 @@ class _NtiAppState extends State<NtiApp>
             );
             return result.accepted;
           },
-          onGameOverDetected:
-              _bootstrap.storeController.persistRuntimeCoins,
+          onGameOverDetected: _completeMinigameSession,
           onGameSessionEnded: () async {
             await _bootstrap.storeController.persistRuntimeCoins();
             await _bootstrap.homeController.cancelPlaying();
@@ -178,6 +179,22 @@ class _NtiAppState extends State<NtiApp>
         ),
       ),
     );
+  }
+
+  Future<void> _completeMinigameSession(
+    MinigameSessionResult result,
+  ) async {
+    final funGained = MinigameFunRewardPolicy.rewardFor(
+      result,
+      maximumReward:
+          _bootstrap.petController.rules.maximumFunRewardPerGame,
+    );
+
+    // Game Over es el cierre real de la partida para Pet. Persistimos la
+    // diversión antes de sincronizar monedas; si Store necesitara reintento,
+    // la salida de la sesión conserva su checkpoint existente.
+    await _bootstrap.homeController.finishPlaying(funGained: funGained);
+    await _bootstrap.storeController.persistRuntimeCoins();
   }
 
   Future<void> _openStore({ShopItemKind initialKind = ShopItemKind.outfit}) async {
@@ -251,6 +268,7 @@ class _NtiAppState extends State<NtiApp>
     _sessionPaused = true;
     _stopTicker();
     _bootstrap.homeController.resetTransientUiForPause();
+    await _bootstrap.feedingCoordinator.flushPendingMaterializations();
     await _bootstrap.petLifecycleCoordinator.pause();
     await _bootstrap.storeController.persistRuntimeCoins();
   }
@@ -321,7 +339,6 @@ class _NtiAppState extends State<NtiApp>
       preferencesController: _bootstrap.preferencesController,
       onPlayRequested: _openMinigames,
       onStoreRequested: () => _openStore(),
-      onFoodStoreRequested: () => _openStore(initialKind: ShopItemKind.food),
       onExitRequested: _exitApplication,
     );
   }

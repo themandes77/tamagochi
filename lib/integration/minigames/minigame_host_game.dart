@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/mini-games/minigame_selector.dart';
+import 'package:flutter_application_1/features/mini-games/recoleccion.dart';
 import 'package:flutter_application_1/features/mini-games/trepa_nubes.dart';
 import 'package:flutter_application_1/features/pet/domain/game_cost_policy.dart';
 import 'package:flutter_application_1/integration/minigames/minigame_cost_policies.dart';
+import 'package:flutter_application_1/integration/minigames/minigame_session_result.dart';
 
 class MinigameHostGame extends FlameGame {
   MinigameHostGame({
@@ -21,11 +24,16 @@ class MinigameHostGame extends FlameGame {
   final Future<bool> Function(GameCostPolicy costPolicy)
       onGameStartRequested;
   final VoidCallback onGameStartRejected;
-  final Future<void> Function() onGameOverDetected;
+  final Future<void> Function(MinigameSessionResult result)
+      onGameOverDetected;
   final VoidCallback onExitRequested;
 
   late final MinigameSelector _selector;
-  TrepaNubes? _activeGame;
+  PositionComponent? _activeGame;
+  bool Function()? _activeGameOver;
+  int Function()? _activeScore;
+  GameCostPolicy? _activeCostPolicy;
+
   bool _selectorWasMounted = false;
   bool _activeGameWasMounted = false;
   bool _gameWasSelected = false;
@@ -39,7 +47,10 @@ class MinigameHostGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _selector = MinigameSelector(onPlayTrepaNubes: _openTrepaNubes);
+    _selector = MinigameSelector(
+      onPlaySaltoEstelar: _openSaltoEstelar,
+      onPlayRecoleccion: _openRecoleccion,
+    );
     await add(_selector);
   }
 
@@ -63,7 +74,10 @@ class MinigameHostGame extends FlameGame {
       return;
     }
 
-    if (activeGame.gameOver && !_gameOverCheckpointStarted) {
+    final isGameOver = _activeGameOver;
+    if (isGameOver != null &&
+        isGameOver() &&
+        !_gameOverCheckpointStarted) {
       _gameOverCheckpointStarted = true;
       unawaited(_checkpointGameOver());
     }
@@ -75,20 +89,55 @@ class MinigameHostGame extends FlameGame {
     }
   }
 
-  void _openTrepaNubes() {
+  void _openSaltoEstelar() {
     if (_activeGame != null || _gameStartPending || _exitSent) {
       return;
     }
-    unawaited(_tryOpenTrepaNubes());
+    unawaited(_tryOpenSaltoEstelar());
   }
 
-  Future<void> _tryOpenTrepaNubes() async {
+  void _openRecoleccion() {
+    if (_activeGame != null || _gameStartPending || _exitSent) {
+      return;
+    }
+    unawaited(_tryOpenRecoleccion());
+  }
+
+  Future<void> _tryOpenSaltoEstelar() async {
+    await _tryOpenGame(
+      costPolicy: MinigameCostPolicies.saltoEstelar,
+      contextLabel: 'Salto Estelar',
+      createGame: () {
+        final game = TrepaNubes(ntiOutfit: ntiOutfit);
+        _activeGameOver = () => game.gameOver;
+        _activeScore = () => game.score;
+        return game;
+      },
+    );
+  }
+
+  Future<void> _tryOpenRecoleccion() async {
+    await _tryOpenGame(
+      costPolicy: MinigameCostPolicies.recoleccion,
+      contextLabel: 'Recolección',
+      createGame: () {
+        final game = Recoleccion(ntiOutfit: ntiOutfit);
+        _activeGameOver = () => game.gameOver;
+        _activeScore = () => game.score;
+        return game;
+      },
+    );
+  }
+
+  Future<void> _tryOpenGame({
+    required GameCostPolicy costPolicy,
+    required String contextLabel,
+    required PositionComponent Function() createGame,
+  }) async {
     _gameStartPending = true;
     _gameWasSelected = true;
     try {
-      final accepted = await onGameStartRequested(
-        MinigameCostPolicies.trepaNubes,
-      );
+      final accepted = await onGameStartRequested(costPolicy);
       if (!accepted) {
         _gameWasSelected = false;
         onGameStartRejected();
@@ -98,21 +147,25 @@ class MinigameHostGame extends FlameGame {
         return;
       }
 
+      _activeCostPolicy = costPolicy;
       _gameStarted = true;
       if (_selector.isMounted) {
         _selector.removeFromParent();
       }
-      final game = TrepaNubes(ntiOutfit: ntiOutfit);
+      final game = createGame();
       _activeGame = game;
       await add(game);
     } catch (error, stackTrace) {
       _gameWasSelected = false;
+      _activeCostPolicy = null;
+      _activeGameOver = null;
+      _activeScore = null;
       FlutterError.reportError(
         FlutterErrorDetails(
           exception: error,
           stack: stackTrace,
           library: 'nt_tamagochi.minigame_host',
-          context: ErrorDescription('al iniciar Trepa Nubes'),
+          context: ErrorDescription('al iniciar $contextLabel'),
         ),
       );
       if (!_selector.isMounted) {
@@ -124,8 +177,19 @@ class MinigameHostGame extends FlameGame {
   }
 
   Future<void> _checkpointGameOver() async {
+    final costPolicy = _activeCostPolicy;
+    final readScore = _activeScore;
+    if (costPolicy == null || readScore == null) {
+      return;
+    }
+
     try {
-      await onGameOverDetected();
+      await onGameOverDetected(
+        MinigameSessionResult(
+          gameId: costPolicy.gameId,
+          score: readScore(),
+        ),
+      );
     } catch (error, stackTrace) {
       FlutterError.reportError(
         FlutterErrorDetails(

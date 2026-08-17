@@ -5,6 +5,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
+import 'package:flutter_application_1/features/pet/presentation/nti_care_visual_state.dart';
 import 'package:flutter_application_1/gui.dart';
 
 enum PlayerState { idle, talking }
@@ -28,15 +29,31 @@ class Nti extends PositionComponent with TapCallbacks {
   late final NtiFace _face;
   late final _NtiGroundShadow _shadow;
   late final NtiSpeechBubble _speechBubble;
+  late final _NtiCareEffects _careEffects;
+  NtiCareVisualState _targetCareVisual = const NtiCareVisualState.idle();
+  double _hungerVisual = 0;
+  double _cleanlinessVisual = 0;
+  double _energyVisual = 0;
+  double _funVisual = 0;
+  double _distressVisual = 0;
+  double _sleepVisual = 0;
+  double _cleaningVisual = 0;
+  double _eatingActionVisual = 0;
+  double _cleanReactionRemaining = 0;
+  double _motionPhase = 0;
   double _idleTime = 0;
   double _reactionRemaining = 0;
   double _reactionDuration = 0;
   double _reactionVisual = 0;
+  double _eatRemaining = 0;
+  double _eatDuration = 0;
+  double _eatVisual = 0;
   double _viewportScale = 1;
   int _greetingIndex = 0;
   Vector2? _restingPosition;
 
   bool get isReacting => _reactionRemaining > 0;
+  bool get isEatingReaction => _eatRemaining > 0;
 
   static const _greetings = <String>[
     '¡Hola! ¿Jugamos?',
@@ -81,9 +98,27 @@ class Nti extends PositionComponent with TapCallbacks {
     }
   }
 
+  /// Reacción breve y reiniciable de comer. No bloquea nuevos consumos: cada
+  /// commit exitoso reinicia el gesto visual y el movimiento de masticar.
+  void eat() {
+    _eatDuration = 0.72;
+    _eatRemaining = _eatDuration;
+    _face.eatFor(_eatDuration);
+  }
+
   void say(String message, {double duration = 3}) {
     _speechBubble.show(message, duration: duration);
     _face.talkFor(duration);
+  }
+
+  /// Recibe únicamente la interpretación visual del estado durable/runtime.
+  /// No altera Pet, no persiste nada y no crea una cola de estados anteriores.
+  void setCareVisualState(NtiCareVisualState state) {
+    final wasCleaning = _targetCareVisual.isCleaning;
+    _targetCareVisual = state;
+    if (!wasCleaning && state.isCleaning) {
+      _cleanReactionRemaining = 0.56;
+    }
   }
 
   @override
@@ -99,9 +134,12 @@ class Nti extends PositionComponent with TapCallbacks {
       size: size,
     );
     _face = NtiFace(size: size, outfit: outfit);
-    _speechBubble = NtiSpeechBubble(position: Vector2((size.x - 244) / 2, -84));
+    _careEffects = _NtiCareEffects(size: size);
+    _speechBubble = NtiSpeechBubble(
+      position: Vector2((size.x - 260) / 2, -96),
+    );
 
-    addAll([_shadow, _body, _face, _speechBubble]);
+    addAll([_shadow, _body, _face, _careEffects, _speechBubble]);
     say('¡Hola! Soy NTI.', duration: 2.8);
     return super.onLoad();
   }
@@ -125,30 +163,169 @@ class Nti extends PositionComponent with TapCallbacks {
     super.update(dt);
     _idleTime += dt;
     _reactionRemaining = math.max(0, _reactionRemaining - dt);
+    _eatRemaining = math.max(0, _eatRemaining - dt);
+    _cleanReactionRemaining = math.max(0, _cleanReactionRemaining - dt);
 
-    final restingPosition = _restingPosition;
-    final floatOffset = math.sin(_idleTime * 1.65) * 5.5;
+    _hungerVisual = _approach(
+      _hungerVisual,
+      _targetCareVisual.hungerIntensity,
+      dt,
+    );
+    _cleanlinessVisual = _approach(
+      _cleanlinessVisual,
+      _targetCareVisual.cleanlinessIntensity,
+      dt,
+    );
+    _energyVisual = _approach(
+      _energyVisual,
+      _targetCareVisual.energyIntensity,
+      dt,
+    );
+    _funVisual = _approach(_funVisual, _targetCareVisual.funIntensity, dt);
+    _distressVisual = _approach(
+      _distressVisual,
+      _targetCareVisual.distressIntensity,
+      dt,
+      speed: 4.4,
+    );
+    _sleepVisual = _approach(
+      _sleepVisual,
+      _targetCareVisual.isSleeping ? 1 : 0,
+      dt,
+      speed: 5.2,
+    );
+    _cleaningVisual = _approach(
+      _cleaningVisual,
+      _targetCareVisual.isCleaning ? 1 : 0,
+      dt,
+      speed: 6.0,
+    );
+    _eatingActionVisual = _approach(
+      _eatingActionVisual,
+      isEatingReaction || _targetCareVisual.isEating ? 1 : 0,
+      dt,
+      speed: 8.5,
+    );
+
+    final actionSuppression = math.max(
+      _cleaningVisual,
+      _eatingActionVisual,
+    );
+    final careWeight = 1 - actionSuppression;
+    final hunger = _hungerVisual * careWeight;
+    final energy = _energyVisual * careWeight;
+    final fun = _funVisual * careWeight;
+    final distress = _distressVisual * careWeight;
+
+    final motionSlowdown = (energy * 0.43 + distress * 0.22)
+        .clamp(0.0, 0.58)
+        .toDouble();
+    final normalMotionSpeed = 1.65 * (1 - motionSlowdown);
+    final motionSpeed = _lerp(normalMotionSpeed, 0.62, _sleepVisual);
+    _motionPhase += dt * motionSpeed;
+
+    final normalFloatAmplitude =
+        5.5 *
+        (1 -
+            (energy * 0.45 + fun * 0.22 + distress * 0.28)
+                .clamp(0.0, 0.72)
+                .toDouble());
+    final floatAmplitude = _lerp(normalFloatAmplitude, 1.35, _sleepVisual);
+    final floatOffset = math.sin(_motionPhase) * floatAmplitude;
+
     final reactionProgress = _reactionDuration == 0
         ? 1.0
         : 1 - (_reactionRemaining / _reactionDuration);
     _reactionVisual = isReacting ? math.sin(reactionProgress * math.pi) : 0.0;
+    final eatProgress = _eatDuration == 0
+        ? 1.0
+        : 1 - (_eatRemaining / _eatDuration);
+    _eatVisual = isEatingReaction ? math.sin(eatProgress * math.pi) : 0.0;
+    final chew = isEatingReaction
+        ? math.sin(eatProgress * math.pi * 6).abs()
+        : 0.0;
+    final hungerPulse =
+        ((math.sin(_idleTime * 3.25) + 1) / 2) * hunger * (1 - _sleepVisual);
+    final cleanProgress = (1 - (_cleanReactionRemaining / 0.56))
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final cleanShakeEnvelope = _cleanReactionRemaining > 0
+        ? math.sin(cleanProgress * math.pi)
+        : 0.0;
+    final cleanShake =
+        math.sin(_idleTime * 31) * cleanShakeEnvelope * _cleaningVisual;
 
+    final restingPosition = _restingPosition;
     if (restingPosition != null) {
+      final slump =
+          (energy * 4.5 + hunger * 2.0 + distress * 7.0) * (1 - _sleepVisual);
       position = Vector2(
-        restingPosition.x,
-        restingPosition.y + floatOffset - _reactionVisual * 20,
+        restingPosition.x + cleanShake * 5.0,
+        restingPosition.y +
+            floatOffset +
+            slump +
+            _sleepVisual * 5.5 -
+            _reactionVisual * 20 +
+            _eatVisual * 5,
       );
     }
 
-    final breath = math.sin(_idleTime * math.pi) * 0.008;
-    scale = Vector2.all(_viewportScale * (1 + breath + _reactionVisual * 0.06));
+    final breathAmplitude = _lerp(0.008, 0.0045, _sleepVisual);
+    final breath = math.sin(_motionPhase * math.pi) * breathAmplitude;
+    final postureSquash =
+        hunger * 0.010 + distress * 0.014 + hungerPulse * 0.012;
+    final baseScale =
+        _viewportScale * (1 + breath + _reactionVisual * 0.06);
+    scale = Vector2(
+      baseScale * (1 + chew * 0.035 + postureSquash * 0.55),
+      baseScale * (1 - chew * 0.026 - postureSquash),
+    );
+
+    final idleAngleAmplitude =
+        0.007 *
+        (1 - (energy * 0.42 + fun * 0.18).clamp(0.0, 0.62).toDouble());
     angle =
-        math.sin(_idleTime * 0.8) * 0.007 +
-        math.sin(reactionProgress * math.pi * 2) * _reactionVisual * 0.025;
+        math.sin(_motionPhase * 0.52) *
+            _lerp(idleAngleAmplitude, 0.002, _sleepVisual) +
+        math.sin(reactionProgress * math.pi * 2) *
+            _reactionVisual *
+            0.025 +
+        math.sin(eatProgress * math.pi * 4) * _eatVisual * 0.012 +
+        cleanShake * 0.014;
 
     if (isLoaded) {
-      _shadow.lift = (floatOffset + 5.5) / 11 + _reactionVisual;
+      final liftDenominator = math.max(floatAmplitude * 2, 1.0);
+      _shadow.lift =
+          ((floatOffset + floatAmplitude) / liftDenominator) +
+          _reactionVisual * (1 - _sleepVisual);
+      _face.setCarePresentation(
+        hungerIntensity: _hungerVisual,
+        cleanlinessIntensity: _cleanlinessVisual,
+        energyIntensity: _energyVisual,
+        funIntensity: _funVisual,
+        distressIntensity: _distressVisual,
+        sleepingIntensity: _sleepVisual,
+        actionSuppression: actionSuppression,
+      );
+      _careEffects.setCarePresentation(
+        cleanlinessIntensity: _cleanlinessVisual,
+        cleaningIntensity: _cleaningVisual,
+      );
     }
+  }
+
+  double _approach(
+    double current,
+    double target,
+    double dt, {
+    double speed = 3.6,
+  }) {
+    final factor = (1 - math.exp(-speed * dt)).clamp(0.0, 1.0).toDouble();
+    return current + (target - current) * factor;
+  }
+
+  double _lerp(double from, double to, double amount) {
+    return from + (to - from) * amount.clamp(0.0, 1.0).toDouble();
   }
 
   @override
@@ -337,11 +514,42 @@ class NtiFace extends PositionComponent {
   NtiOutfit outfit;
   double _elapsed = 0;
   double _talkRemaining = 0;
+  double _eatRemaining = 0;
+  double _hungerIntensity = 0;
+  double _cleanlinessIntensity = 0;
+  double _energyIntensity = 0;
+  double _funIntensity = 0;
+  double _distressIntensity = 0;
+  double _sleepingIntensity = 0;
+  double _actionSuppression = 0;
 
   bool get isTalking => _talkRemaining > 0;
+  bool get isEating => _eatRemaining > 0;
 
   void talkFor(double duration) {
     _talkRemaining = duration;
+  }
+
+  void eatFor(double duration) {
+    _eatRemaining = duration;
+  }
+
+  void setCarePresentation({
+    required double hungerIntensity,
+    required double cleanlinessIntensity,
+    required double energyIntensity,
+    required double funIntensity,
+    required double distressIntensity,
+    required double sleepingIntensity,
+    required double actionSuppression,
+  }) {
+    _hungerIntensity = hungerIntensity;
+    _cleanlinessIntensity = cleanlinessIntensity;
+    _energyIntensity = energyIntensity;
+    _funIntensity = funIntensity;
+    _distressIntensity = distressIntensity;
+    _sleepingIntensity = sleepingIntensity;
+    _actionSuppression = actionSuppression;
   }
 
   @override
@@ -349,18 +557,39 @@ class NtiFace extends PositionComponent {
     super.update(dt);
     _elapsed += dt;
     _talkRemaining = math.max(0, _talkRemaining - dt);
+    _eatRemaining = math.max(0, _eatRemaining - dt);
   }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
 
+    final needsWeight = 1 - _actionSuppression;
+    final hunger = _hungerIntensity * needsWeight * (1 - _sleepingIntensity);
+    final cleanliness =
+        _cleanlinessIntensity * needsWeight * (1 - _sleepingIntensity);
+    final energy = _energyIntensity * needsWeight * (1 - _sleepingIntensity);
+    final fun = _funIntensity * needsWeight * (1 - _sleepingIntensity);
+    final distress =
+        _distressIntensity * needsWeight * (1 - _sleepingIntensity);
+
     final blinkCycle = _elapsed % 4.2;
     final isBlinking = blinkCycle > 3.92 && blinkCycle < 4.12;
-    final gazeX = math.sin(_elapsed * 0.85) * size.x * 0.009;
-    final eyeY = size.y * outfit.eyeCenterY;
+    final gazeX =
+        math.sin(_elapsed * 0.85) * size.x * 0.009 * (1 - energy * 0.65);
+    final gazeDrop = size.y * (fun * 0.006 + distress * 0.010);
+    final eyeY = size.y * outfit.eyeCenterY + gazeDrop;
     final eyeWidth = size.x * 0.075;
-    final eyeHeight = isBlinking ? size.y * 0.012 : size.y * 0.115;
+    final awakeEyeHeight =
+        size.y *
+        0.115 *
+        (1 -
+            (energy * 0.52 + distress * 0.22 + cleanliness * 0.06)
+                .clamp(0.0, 0.72)
+                .toDouble());
+    final eyeHeight = isBlinking
+        ? size.y * 0.012
+        : _lerp(awakeEyeHeight, size.y * 0.012, _sleepingIntensity);
 
     _drawEye(
       canvas,
@@ -369,6 +598,10 @@ class NtiFace extends PositionComponent {
       height: eyeHeight,
       gazeX: gazeX,
       blinking: isBlinking,
+      sleeping: _sleepingIntensity,
+      tired: energy,
+      distress: distress,
+      mirror: false,
     );
     _drawEye(
       canvas,
@@ -377,9 +610,20 @@ class NtiFace extends PositionComponent {
       height: eyeHeight,
       gazeX: gazeX,
       blinking: isBlinking,
+      sleeping: _sleepingIntensity,
+      tired: energy,
+      distress: distress,
+      mirror: true,
     );
 
-    _drawMouth(canvas);
+    _drawMouth(
+      canvas,
+      hunger: hunger,
+      cleanliness: cleanliness,
+      fun: fun,
+      distress: distress,
+      sleeping: _sleepingIntensity,
+    );
   }
 
   void _drawEye(
@@ -389,11 +633,35 @@ class NtiFace extends PositionComponent {
     required double height,
     required double gazeX,
     required bool blinking,
+    required double sleeping,
+    required double tired,
+    required double distress,
+    required bool mirror,
   }) {
+    if (sleeping > 0.62) {
+      final path = Path()
+        ..moveTo(center.dx - width * 0.50, center.dy)
+        ..quadraticBezierTo(
+          center.dx,
+          center.dy + height * 0.72 + size.y * 0.008,
+          center.dx + width * 0.50,
+          center.dy,
+        );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFF211A2B)
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 4.2,
+      );
+      return;
+    }
+
     final eyeRect = Rect.fromCenter(
       center: center,
       width: width,
-      height: height,
+      height: math.max(height, size.y * 0.012),
     );
 
     if (blinking) {
@@ -418,15 +686,105 @@ class NtiFace extends PositionComponent {
         ).createShader(eyeRect),
     );
 
+    final highlightAlpha = (0.72 * (1 - tired * 0.40 - distress * 0.26))
+        .clamp(0.30, 0.72)
+        .toDouble();
     canvas.drawCircle(
       Offset(center.dx - width * 0.18 + gazeX, center.dy - height * 0.23),
       width * 0.13,
-      Paint()..color = Colors.white.withValues(alpha: 0.72),
+      Paint()..color = Colors.white.withValues(alpha: highlightAlpha),
     );
+
+    final lidWeight = (tired * 0.72 + distress * 0.30)
+        .clamp(0.0, 0.86)
+        .toDouble();
+    if (lidWeight > 0.02) {
+      final lidRect = Rect.fromLTWH(
+        eyeRect.left - 1,
+        eyeRect.top - 1,
+        eyeRect.width + 2,
+        eyeRect.height * lidWeight,
+      );
+      canvas.drawArc(
+        lidRect,
+        math.pi,
+        math.pi,
+        false,
+        Paint()
+          ..color = const Color(0xFF211A2B).withValues(alpha: 0.72 * lidWeight)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.4
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
+    if (distress > 0.18) {
+      final browY = eyeRect.top - size.y * 0.022;
+      final inward = mirror ? -1.0 : 1.0;
+      final path = Path()
+        ..moveTo(center.dx - width * 0.38, browY + inward * distress * 2)
+        ..lineTo(center.dx + width * 0.38, browY - inward * distress * 2);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFF34263D).withValues(alpha: distress * 0.72)
+          ..strokeWidth = 3.2
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke,
+      );
+    }
   }
 
-  void _drawMouth(Canvas canvas) {
+  void _drawMouth(
+    Canvas canvas, {
+    required double hunger,
+    required double cleanliness,
+    required double fun,
+    required double distress,
+    required double sleeping,
+  }) {
     final center = Offset(size.x * 0.5, size.y * outfit.mouthCenterY);
+
+    if (sleeping > 0.62) {
+      final sleepPath = Path()
+        ..moveTo(center.dx - size.x * 0.035, center.dy)
+        ..quadraticBezierTo(
+          center.dx,
+          center.dy + size.y * 0.012,
+          center.dx + size.x * 0.035,
+          center.dy,
+        );
+      canvas.drawPath(
+        sleepPath,
+        Paint()
+          ..color = const Color(0xFF17111D)
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 5,
+      );
+      return;
+    }
+
+    if (isEating) {
+      final open = (_elapsed * 13).floor().isEven;
+      final mouthRect = Rect.fromCenter(
+        center: center,
+        width: size.x * (open ? 0.105 : 0.072),
+        height: size.y * (open ? 0.072 : 0.026),
+      );
+      canvas.drawOval(mouthRect, Paint()..color = const Color(0xFF151019));
+      if (open) {
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: Offset(center.dx, center.dy + mouthRect.height * 0.18),
+            width: mouthRect.width * 0.52,
+            height: mouthRect.height * 0.28,
+          ),
+          Paint()..color = const Color(0xFFE97A9B),
+        );
+      }
+      return;
+    }
 
     if (isTalking) {
       final openWide = (_elapsed * 8).floor().isEven;
@@ -456,6 +814,30 @@ class NtiFace extends PositionComponent {
       return;
     }
 
+    if (distress > 0.12) {
+      _drawFrown(canvas, center: center, intensity: distress, width: 0.060);
+      return;
+    }
+
+    // Hambre y diversión compiten principalmente por boca. Se combinan todos
+    // los demás canales, pero aquí gana suavemente la necesidad más intensa.
+    if (hunger >= fun && hunger > 0.08) {
+      _drawUneasyMouth(canvas, center: center, intensity: hunger);
+      return;
+    }
+    if (fun > 0.08) {
+      _drawFrown(canvas, center: center, intensity: fun, width: 0.055);
+      return;
+    }
+    if (cleanliness > 0.22) {
+      _drawUneasyMouth(
+        canvas,
+        center: center,
+        intensity: cleanliness * 0.55,
+      );
+      return;
+    }
+
     final smile = Path()
       ..moveTo(center.dx - size.x * 0.055, center.dy)
       ..quadraticBezierTo(
@@ -473,85 +855,312 @@ class NtiFace extends PositionComponent {
         ..strokeWidth = 6,
     );
   }
+
+  void _drawFrown(
+    Canvas canvas, {
+    required Offset center,
+    required double intensity,
+    required double width,
+  }) {
+    final normalized = intensity.clamp(0.0, 1.0).toDouble();
+    final path = Path()
+      ..moveTo(center.dx - size.x * width, center.dy + size.y * 0.018)
+      ..quadraticBezierTo(
+        center.dx,
+        center.dy - size.y * (0.015 + 0.030 * normalized),
+        center.dx + size.x * width,
+        center.dy + size.y * 0.018,
+      );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF17111D)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 5.5,
+    );
+  }
+
+  void _drawUneasyMouth(
+    Canvas canvas, {
+    required Offset center,
+    required double intensity,
+  }) {
+    final normalized = intensity.clamp(0.0, 1.0).toDouble();
+    final width = size.x * (0.047 + normalized * 0.010);
+    final wave = size.y * (0.008 + normalized * 0.010);
+    final path = Path()
+      ..moveTo(center.dx - width, center.dy)
+      ..cubicTo(
+        center.dx - width * 0.45,
+        center.dy - wave,
+        center.dx - width * 0.10,
+        center.dy + wave,
+        center.dx,
+        center.dy,
+      )
+      ..cubicTo(
+        center.dx + width * 0.10,
+        center.dy - wave,
+        center.dx + width * 0.45,
+        center.dy + wave,
+        center.dx + width,
+        center.dy,
+      );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF17111D)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 5.2,
+    );
+  }
+
+  double _lerp(double from, double to, double amount) {
+    return from + (to - from) * amount.clamp(0.0, 1.0).toDouble();
+  }
+}
+
+class _NtiCareEffects extends PositionComponent {
+  _NtiCareEffects({required super.size}) {
+    priority = 12;
+  }
+
+  double _elapsed = 0;
+  double _cleanlinessIntensity = 0;
+  double _cleaningIntensity = 0;
+
+  static const _dirtPoints = <Offset>[
+    Offset(0.31, 0.36),
+    Offset(0.68, 0.39),
+    Offset(0.39, 0.58),
+    Offset(0.63, 0.62),
+    Offset(0.48, 0.72),
+  ];
+
+  void setCarePresentation({
+    required double cleanlinessIntensity,
+    required double cleaningIntensity,
+  }) {
+    _cleanlinessIntensity = cleanlinessIntensity;
+    _cleaningIntensity = cleaningIntensity;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _elapsed += dt;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    final dirt = _cleanlinessIntensity.clamp(0.0, 1.0).toDouble();
+    if (dirt > 0.035) {
+      final visibleCount = (1 + dirt * (_dirtPoints.length - 1)).ceil();
+      for (var index = 0; index < visibleCount; index++) {
+        final point = _dirtPoints[index];
+        final pulse = 0.88 + math.sin(_elapsed * 1.4 + index) * 0.08;
+        final radius = size.x * (0.014 + (index % 3) * 0.004) * pulse;
+        final alpha = (0.10 + dirt * 0.25).clamp(0.0, 0.34).toDouble();
+        canvas.drawCircle(
+          Offset(size.x * point.dx, size.y * point.dy),
+          radius,
+          Paint()
+            ..color = const Color(0xFF725744).withValues(alpha: alpha)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+        );
+      }
+
+      // Dos motas exteriores muy discretas: suficiente para leer "sucio" sin
+      // convertir el Home en una nube de partículas.
+      for (var index = 0; index < 2; index++) {
+        final phase = _elapsed * (0.75 + index * 0.12) + index * math.pi;
+        final center = Offset(
+          size.x * (index == 0 ? 0.24 : 0.76) + math.sin(phase) * 5,
+          size.y * (0.38 + index * 0.15) + math.cos(phase * 0.8) * 7,
+        );
+        canvas.drawCircle(
+          center,
+          size.x * 0.009,
+          Paint()..color = const Color(0xFF624936).withValues(alpha: dirt * 0.32),
+        );
+      }
+    }
+
+    final cleaning = _cleaningIntensity.clamp(0.0, 1.0).toDouble();
+    if (cleaning > 0.05) {
+      for (var index = 0; index < 3; index++) {
+        final phase = _elapsed * 2.8 + index * 2.1;
+        final center = Offset(
+          size.x * (0.35 + index * 0.15) + math.sin(phase) * size.x * 0.018,
+          size.y * (0.34 + (index % 2) * 0.22) -
+              ((_elapsed * 18 + index * 20) % 24),
+        );
+        final radius = size.x * (0.008 + index * 0.002);
+        canvas.drawCircle(
+          center,
+          radius,
+          Paint()
+            ..color = Colors.white.withValues(alpha: cleaning * 0.52)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.1,
+        );
+      }
+    }
+  }
 }
 
 class NtiSpeechBubble extends PositionComponent {
-  NtiSpeechBubble({required super.position}) : super(size: Vector2(244, 72));
+  NtiSpeechBubble({required super.position}) : super(size: Vector2(260, 84)) {
+    priority = 40;
+  }
 
   String _message = '';
   double _remaining = 0;
+  double _visibility = 0;
+  double _appearanceElapsed = 0;
 
   void show(String message, {required double duration}) {
+    final wasHidden = _remaining <= 0 && _visibility < 0.05;
     _message = message;
     _remaining = duration;
+    if (wasHidden) {
+      _appearanceElapsed = 0;
+    }
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     _remaining = math.max(0, _remaining - dt);
+    if (_remaining > 0) {
+      _appearanceElapsed += dt;
+    }
+    final target = _remaining > 0 ? 1.0 : 0.0;
+    final speed = target > _visibility ? 10.0 : 8.0;
+    final factor = (1 - math.exp(-speed * dt)).clamp(0.0, 1.0).toDouble();
+    _visibility += (target - _visibility) * factor;
   }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    if (_remaining <= 0 || _message.isEmpty) {
+    if (_visibility <= 0.01 || _message.isEmpty) {
       return;
     }
 
-    final bubbleRect = Rect.fromLTWH(0, 0, size.x, size.y - 12);
+    final alpha = _visibility.clamp(0.0, 1.0).toDouble();
+    final intro = (_appearanceElapsed / 0.22).clamp(0.0, 1.0).toDouble();
+    final eased = 1 - math.pow(1 - intro, 3).toDouble();
+    final scaleValue = 0.90 + eased * 0.10;
+    final bubbleRect = Rect.fromLTWH(0, 0, size.x, size.y - 14);
     final bubble = RRect.fromRectAndRadius(
       bubbleRect,
-      const Radius.circular(18),
+      const Radius.circular(22),
+    );
+
+    canvas.save();
+    canvas.translate(size.x / 2, (size.y - 14) / 2);
+    canvas.scale(scaleValue, scaleValue);
+    canvas.translate(-size.x / 2, -(size.y - 14) / 2);
+
+    final shadowBubble = bubble.shift(const Offset(0, 5));
+    canvas.drawRRect(
+      shadowBubble,
+      Paint()
+        ..color = const Color(0xFF4A2A67).withValues(alpha: 0.18 * alpha)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
     );
     canvas.drawRRect(
       bubble,
       Paint()
-        ..color = Colors.white.withValues(alpha: 0.96)
+        ..color = const Color(0xFFFFF1D6).withValues(alpha: 0.98 * alpha)
         ..style = PaintingStyle.fill,
     );
     canvas.drawRRect(
       bubble,
       Paint()
-        ..color = const Color(0xFF6E3CB5)
+        ..color = const Color(0xFF6D3AA5).withValues(alpha: alpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
     );
 
     final tail = Path()
-      ..moveTo(size.x * 0.44, size.y - 13)
-      ..lineTo(size.x * 0.5, size.y)
-      ..lineTo(size.x * 0.56, size.y - 13)
+      ..moveTo(size.x * 0.45, size.y - 16)
+      ..lineTo(size.x * 0.51, size.y)
+      ..lineTo(size.x * 0.57, size.y - 16)
       ..close();
-    canvas.drawPath(tail, Paint()..color = Colors.white);
+    canvas.drawPath(
+      tail,
+      Paint()..color = const Color(0xFFFFF1D6).withValues(alpha: 0.98 * alpha),
+    );
     canvas.drawPath(
       tail,
       Paint()
-        ..color = const Color(0xFF6E3CB5)
+        ..color = const Color(0xFF6D3AA5).withValues(alpha: alpha)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
+    );
+
+    _drawGoldSparkle(
+      canvas,
+      center: Offset(size.x - 22, 17),
+      radius: 7,
+      alpha: alpha,
     );
 
     final textPainter = TextPainter(
       text: TextSpan(
         text: _message,
-        style: const TextStyle(
-          color: Color(0xFF2C2135),
+        style: TextStyle(
+          color: const Color(0xFF3D3048).withValues(alpha: alpha),
           fontSize: 17,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Fredoka',
         ),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
       maxLines: 2,
-    )..layout(maxWidth: size.x - 28);
+      ellipsis: '…',
+    )..layout(maxWidth: size.x - 38);
 
     textPainter.paint(
       canvas,
       Offset(
         (size.x - textPainter.width) / 2,
-        (size.y - 12 - textPainter.height) / 2,
+        (size.y - 14 - textPainter.height) / 2,
       ),
+    );
+    canvas.restore();
+  }
+
+  void _drawGoldSparkle(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required double alpha,
+  }) {
+    final path = Path();
+    for (var index = 0; index < 8; index++) {
+      final pointRadius = index.isEven ? radius : radius * 0.28;
+      final angle = -math.pi / 2 + index * math.pi / 4;
+      final point = Offset(
+        center.dx + math.cos(angle) * pointRadius,
+        center.dy + math.sin(angle) * pointRadius,
+      );
+      if (index == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(
+      path,
+      Paint()..color = const Color(0xFFE2AA37).withValues(alpha: alpha),
     );
   }
 }

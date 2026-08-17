@@ -57,6 +57,7 @@ void main() {
         PetTransactionParticipant(
           controller: petController,
           repository: petRepository,
+          onDurablePersisted: lifecycle.markTransactionSnapshotDurable,
         ),
         StoreTransactionParticipant(
           controller: storeController,
@@ -126,6 +127,7 @@ void main() {
           PetTransactionParticipant(
             controller: petController,
             repository: petRepository,
+            onDurablePersisted: lifecycle.markTransactionSnapshotDurable,
           ),
           StoreTransactionParticipant(
             controller: storeController,
@@ -194,6 +196,7 @@ void main() {
           PetTransactionParticipant(
             controller: petController,
             repository: petRepository,
+            onDurablePersisted: lifecycle.markTransactionSnapshotDurable,
           ),
           StoreTransactionParticipant(
             controller: storeController,
@@ -207,6 +210,7 @@ void main() {
     );
 
     final result = await feeding.consume('food_2');
+    await feeding.flushPendingMaterializations();
 
     expect(result.status, FoodFeedStatus.success);
     expect(storeController.foodQuantity('food_2'), 0);
@@ -257,6 +261,7 @@ void main() {
           PetTransactionParticipant(
             controller: petController,
             repository: petRepository,
+            onDurablePersisted: lifecycle.markTransactionSnapshotDurable,
           ),
           StoreTransactionParticipant(
             controller: storeController,
@@ -282,6 +287,7 @@ void main() {
       home.handleSelectedFoodTap(),
       home.handleSelectedFoodTap(),
     ]);
+    await feeding.flushPendingMaterializations();
 
     expect(results[0].status, FoodFeedStatus.success);
     expect(results[1].status, FoodFeedStatus.success);

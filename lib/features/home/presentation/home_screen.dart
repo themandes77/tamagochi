@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/app/settings/app_preferences_controller.dart';
 import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
 import 'package:flutter_application_1/features/food/presentation/food_inventory_overlay.dart';
+import 'package:flutter_application_1/features/food/presentation/food_purchase_dialog.dart';
 import 'package:flutter_application_1/features/home/application/care_tool.dart';
 import 'package:flutter_application_1/features/home/application/home_controller.dart';
 import 'package:flutter_application_1/features/home/application/home_notice.dart';
@@ -28,7 +29,6 @@ class HomeScreen extends StatefulWidget {
     required this.onExitRequested,
     this.onPlayRequested,
     this.onStoreRequested,
-    this.onFoodStoreRequested,
     super.key,
   });
 
@@ -39,7 +39,6 @@ class HomeScreen extends StatefulWidget {
   final Future<void> Function() onExitRequested;
   final Future<void> Function()? onPlayRequested;
   final Future<void> Function()? onStoreRequested;
-  final Future<void> Function()? onFoodStoreRequested;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -68,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
           widget.homeController.selectedTool == CareTool.soap,
       isCleaningActive: () => widget.homeController.isCleaning,
       isFullyClean: () => widget.homeController.petState.cleanliness >= 9.999,
+      petState: () => widget.homeController.petState,
+      petActivity: () => widget.homeController.activity,
     );
   }
 
@@ -95,6 +96,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!allowed || !mounted) {
       return;
     }
+    widget.homeController.clearFoodSelectionIfUnavailable(
+      widget.storeController.foodQuantity,
+    );
     setState(() {
       _foodInventoryOpen = true;
     });
@@ -114,13 +118,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _closeFoodInventory();
   }
 
-  Future<void> _openFoodStore() async {
-    final callback = widget.onFoodStoreRequested ?? widget.onStoreRequested;
-    if (callback == null) {
+  Future<void> _openFoodPurchase() async {
+    if (!mounted) {
       return;
     }
-    _closeFoodInventory();
-    await _requestStore(callback);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => FoodPurchaseDialog(
+        storeController: widget.storeController,
+      ),
+    );
   }
 
   Future<void> _requestPlay() async {
@@ -337,6 +345,59 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: widget.homeController,
+              builder: (context, _) {
+                return IgnorePointer(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 360),
+                    curve: Curves.easeOutCubic,
+                    opacity: widget.homeController.isResting ? 1 : 0,
+                    child: const ColoredBox(color: Color(0x33271833)),
+                  ),
+                );
+              },
+            ),
+          ),
+          AnimatedBuilder(
+            animation: widget.homeController,
+            builder: (context, _) {
+              final resting = widget.homeController.isResting;
+              return SafeArea(
+                child: Align(
+                  alignment: const Alignment(0.32, -0.18),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    reverseDuration: const Duration(milliseconds: 190),
+                    transitionBuilder: (child, animation) {
+                      final curved = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutBack,
+                        reverseCurve: Curves.easeIn,
+                      );
+                      return FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.88, end: 1).animate(curved),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: resting
+                        ? const PetMessageBubble(
+                            key: ValueKey<String>('nti-sleep-zzz'),
+                            message: 'Zzz…',
+                            compact: true,
+                          )
+                        : const SizedBox(
+                            key: ValueKey<String>('nti-sleep-awake'),
+                          ),
+                  ),
+                ),
+              );
+            },
+          ),
           if (_systemMessage != null)
             SafeArea(
               child: Align(
@@ -354,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
               storeController: widget.storeController,
               selectedFoodId: widget.homeController.selectedFoodId,
               onFoodSelected: _selectFood,
-              onOpenStore: () => unawaited(_openFoodStore()),
+              onOpenPurchase: () => unawaited(_openFoodPurchase()),
               onClose: _closeFoodInventory,
             ),
           if (_pauseOpen)

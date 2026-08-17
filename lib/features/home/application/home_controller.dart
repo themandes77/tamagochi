@@ -56,6 +56,10 @@ class HomeController extends ChangeNotifier {
       return;
     }
 
+    if (tool != CareTool.food) {
+      await feedingCoordinator.flushPendingMaterializations();
+    }
+
     if (isCleaning) {
       await finishCleaningGesture();
     }
@@ -81,6 +85,17 @@ class HomeController extends ChangeNotifier {
       notifyListeners();
     }
     return true;
+  }
+
+  /// Si el alimento seleccionado ya no tiene unidades disponibles, limpia la
+  /// selección antes de mostrar el inventario. Mantiene la UI coherente incluso
+  /// si el inventario cambió por recovery u otra operación externa.
+  void clearFoodSelectionIfUnavailable(int Function(String foodId) quantityFor) {
+    final selectedFoodId = _selectedFoodId;
+    if (selectedFoodId == null || quantityFor(selectedFoodId) > 0) {
+      return;
+    }
+    _clearSelectedTool();
   }
 
   void toggleFoodSelection(String foodId) {
@@ -202,12 +217,14 @@ class HomeController extends ChangeNotifier {
     if (!canNavigateFromHome) {
       return false;
     }
+    await feedingCoordinator.flushPendingMaterializations();
     await finishCleaningGesture();
     _clearSelectedTool();
     return true;
   }
 
   Future<void> prepareForPauseOverlay() async {
+    await feedingCoordinator.flushPendingMaterializations();
     await finishCleaningGesture();
   }
 
@@ -222,6 +239,7 @@ class HomeController extends ChangeNotifier {
   Future<HomeActionResult> tryStartPlaying({
     required GameCostPolicy costPolicy,
   }) async {
+    await feedingCoordinator.flushPendingMaterializations();
     final result = await lifecycleCoordinator.startPlaying(
       costPolicy: costPolicy,
     );
@@ -233,6 +251,13 @@ class HomeController extends ChangeNotifier {
     };
   }
 
+  Future<void> finishPlaying({required double funGained}) async {
+    if (!isPlaying) {
+      return;
+    }
+    await lifecycleCoordinator.finishPlaying(funGained: funGained);
+  }
+
   Future<void> cancelPlaying() async {
     if (isPlaying) {
       await lifecycleCoordinator.cancelPlaying();
@@ -240,6 +265,7 @@ class HomeController extends ChangeNotifier {
   }
 
   Future<HomeNotice?> toggleResting() async {
+    await feedingCoordinator.flushPendingMaterializations();
     if (isResting) {
       await lifecycleCoordinator.stopResting();
       return null;

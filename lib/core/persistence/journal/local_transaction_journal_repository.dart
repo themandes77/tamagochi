@@ -53,7 +53,8 @@ class LocalTransactionJournalRepository
     final result = await storage.read();
     switch (result.status) {
       case JsonStorageReadStatus.missing:
-        await _saveAll(<JournalTransaction>[]);
+        // Ausencia real equivale a journal vacío. No escribimos un archivo
+        // vacío para luego reescribirlo al abrir la primera transacción.
         return <JournalTransaction>[];
       case JsonStorageReadStatus.resetRequired:
         // Un Pet o Store irrecuperable puede reiniciarse por módulo. El

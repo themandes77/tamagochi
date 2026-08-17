@@ -8,18 +8,21 @@ class JournalParticipantRecord {
   const JournalParticipantRecord({
     required this.participantKey,
     required this.beforeChecksum,
+    String? durableBeforeChecksum,
     required this.targetChecksum,
     required this.targetPayload,
     this.beforePayload,
     this.status = JournalParticipantStatus.pending,
     this.appliedAt,
-  });
+  }) : durableBeforeChecksum = durableBeforeChecksum ?? beforeChecksum;
 
   factory JournalParticipantRecord.fromJson(Map<String, Object?> json) {
     final rawBeforePayload = json['beforePayload'];
     return JournalParticipantRecord(
       participantKey: _readString(json, 'participantKey'),
       beforeChecksum: _readString(json, 'beforeChecksum'),
+      durableBeforeChecksum: _readOptionalString(json, 'durableBeforeChecksum') ??
+          _readString(json, 'beforeChecksum'),
       targetChecksum: _readString(json, 'targetChecksum'),
       beforePayload: rawBeforePayload == null
           ? null
@@ -42,10 +45,18 @@ class JournalParticipantRecord {
 
   /// Payload anterior a la transacción.
   ///
-  /// Es nullable únicamente para journals schema 1 migrados. Las nuevas
-  /// transacciones schema 2 siempre lo guardan para permitir rollback real.
+  /// Es nullable únicamente para journals schema 1 migrados. Desde schema 2
+  /// se guarda siempre y en schema 3 representa el estado lógico de rollback,
+  /// que puede diferir de la última fotografía durable.
   final Map<String, Object?>? beforePayload;
+  /// Checksum del estado lógico al que se vuelve si hace falta rollback.
   final String beforeChecksum;
+
+  /// Checksum que se espera encontrar durable antes de materializar target.
+  ///
+  /// En schema 1/2 coincide con [beforeChecksum]. En schema 3 puede diferir:
+  /// Pet puede haber avanzado lógicamente por decay sin checkpoint previo.
+  final String durableBeforeChecksum;
   final String targetChecksum;
   final Map<String, Object?> targetPayload;
   final JournalParticipantStatus status;
@@ -65,6 +76,7 @@ class JournalParticipantRecord {
               ? null
               : Map<String, Object?>.from(this.beforePayload!),
       beforeChecksum: beforeChecksum,
+      durableBeforeChecksum: durableBeforeChecksum,
       targetChecksum: targetChecksum,
       targetPayload: Map<String, Object?>.from(targetPayload),
       status: status ?? this.status,
@@ -77,6 +89,7 @@ class JournalParticipantRecord {
       'participantKey': participantKey,
       'beforePayload': beforePayload,
       'beforeChecksum': beforeChecksum,
+      'durableBeforeChecksum': durableBeforeChecksum,
       'targetChecksum': targetChecksum,
       'targetPayload': targetPayload,
       'status': status.name,
@@ -173,6 +186,17 @@ String _readString(Map<String, Object?> json, String key) {
   final value = json[key];
   if (value is! String || value.isEmpty) {
     throw FormatException('$key debe ser un texto no vacío.');
+  }
+  return value;
+}
+
+String? _readOptionalString(Map<String, Object?> json, String key) {
+  final value = json[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is! String || value.isEmpty) {
+    throw FormatException('$key debe ser un texto no vacío o null.');
   }
   return value;
 }

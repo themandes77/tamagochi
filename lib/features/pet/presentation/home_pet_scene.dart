@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/actors/player.dart';
 import 'package:flutter_application_1/features/customization/presentation/room_background.dart';
 import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
+import 'package:flutter_application_1/features/pet/domain/pet_activity.dart';
+import 'package:flutter_application_1/features/pet/domain/pet_state.dart';
+import 'package:flutter_application_1/features/pet/presentation/nti_care_visual_state.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 
 /// Escena Flame alojada por el Home Flutter.
@@ -25,6 +28,8 @@ class HomePetScene extends FlameGame {
     required this.isCleaningToolSelected,
     required this.isCleaningActive,
     required this.isFullyClean,
+    required this.petState,
+    required this.petActivity,
   }) : nti = Nti(outfit: storeController.selectedOutfit),
        roomBackground = RoomBackground(theme: storeController.selectedTheme);
 
@@ -37,6 +42,8 @@ class HomePetScene extends FlameGame {
   final bool Function() isCleaningToolSelected;
   final bool Function() isCleaningActive;
   final bool Function() isFullyClean;
+  final PetState Function() petState;
+  final PetActivity Function() petActivity;
 
   final Nti nti;
   final RoomBackground roomBackground;
@@ -69,6 +76,17 @@ class HomePetScene extends FlameGame {
     await add(_careLayer);
 
     storeController.addListener(_onStoreChanged);
+  }
+
+  @override
+  void update(double dt) {
+    nti.setCareVisualState(
+      NtiCareVisualResolver.resolve(
+        state: petState(),
+        activity: petActivity(),
+      ),
+    );
+    super.update(dt);
   }
 
   @override
@@ -190,7 +208,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
       final result = await onFoodTap();
       switch (result.status) {
         case FoodFeedStatus.success:
-          nti.react();
+          nti.eat();
           nti.say('¡Qué rico! Ya tengo energía.');
           break;
         case FoodFeedStatus.tooFull:

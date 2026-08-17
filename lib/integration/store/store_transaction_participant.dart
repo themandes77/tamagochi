@@ -3,7 +3,7 @@ import 'package:flutter_application_1/features/store/application/store_controlle
 import 'package:flutter_application_1/features/store/domain/store_repository.dart';
 import 'package:flutter_application_1/features/store/domain/store_snapshot.dart';
 
-class StoreTransactionParticipant implements TransactionParticipant {
+class StoreTransactionParticipant implements WriteAheadTransactionParticipant {
   StoreTransactionParticipant({
     required this.controller,
     required this.repository,
@@ -25,6 +25,16 @@ class StoreTransactionParticipant implements TransactionParticipant {
     final snapshot = StoreSnapshot.fromJson(payload);
     await repository.save(snapshot);
     await controller.initialize();
+  }
+
+  @override
+  Future<void> applyRuntimePayload(Map<String, Object?> payload) async {
+    controller.applyTransactionSnapshot(StoreSnapshot.fromJson(payload));
+  }
+
+  @override
+  Future<void> persistPayload(Map<String, Object?> payload) async {
+    await repository.save(StoreSnapshot.fromJson(payload));
   }
 
   @override

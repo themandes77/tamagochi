@@ -38,6 +38,7 @@ class NtiMinigameAvatar {
     Canvas canvas, {
     required Vector2 position,
     required Vector2 size,
+    double visualOffsetY = 0,
   }) {
     final body = _body;
     if (body == null || size.x <= 0 || size.y <= 0) {
@@ -49,7 +50,10 @@ class NtiMinigameAvatar {
     final visualScale = 1 + breath;
     final scaleX = (size.x / _referenceExtent) * visualScale;
     final scaleY = (size.y / _referenceExtent) * visualScale;
-    final center = Offset(position.x + size.x / 2, position.y + size.y / 2);
+    final center = Offset(
+      position.x + size.x / 2,
+      position.y + visualOffsetY + size.y / 2,
+    );
 
     canvas.save();
     canvas.translate(center.dx, center.dy);

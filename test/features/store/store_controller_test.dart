@@ -127,6 +127,31 @@ void main() {
       expect(controller.foodQuantity('food_1'), 3);
     });
 
+
+    test('food inventory caps each item at 99 without charging extra', () async {
+      final initial = StoreSnapshot.initial(coins: 500).copyWith(
+        foodInventory: const <String, int>{
+          'food_1': 98,
+          'food_2': 0,
+          'food_3': 0,
+        },
+      );
+      repository = InMemoryStoreRepository(initialSnapshot: initial);
+      controller = StoreController(repository: repository);
+      await controller.initialize();
+
+      expect(await controller.buyFood('food_1'), FoodPurchaseResult.success);
+      expect(controller.foodQuantity('food_1'), 99);
+      expect(controller.coins, 499);
+
+      expect(
+        await controller.buyFood('food_1'),
+        FoodPurchaseResult.inventoryFull,
+      );
+      expect(controller.foodQuantity('food_1'), 99);
+      expect(controller.coins, 499);
+    });
+
     test('rejects invalid rewards', () async {
       await expectLater(controller.addCoins(0), throwsArgumentError);
     });

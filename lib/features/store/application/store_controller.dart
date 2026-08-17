@@ -14,6 +14,8 @@ import 'package:flutter_application_1/features/store/domain/store_repository.dar
 import 'package:flutter_application_1/features/store/domain/store_snapshot.dart';
 
 class StoreController extends ChangeNotifier {
+  static const int maxFoodQuantityPerItem = 99;
+
   StoreController({
     required this.repository,
     this.catalog = defaultShopCatalog,
@@ -100,6 +102,9 @@ class StoreController extends ChangeNotifier {
       if (food == null) {
         return FoodPurchaseResult.itemNotFound;
       }
+      if (foodQuantity(food.id) >= maxFoodQuantityPerItem) {
+        return FoodPurchaseResult.inventoryFull;
+      }
       if (coins < food.price) {
         return FoodPurchaseResult.insufficientFunds;
       }
@@ -111,7 +116,10 @@ class StoreController extends ChangeNotifier {
       }
 
       final updatedInventory = Map<String, int>.from(_state.foodInventory);
-      updatedInventory[food.id] = foodQuantity(food.id) + 1;
+      updatedInventory[food.id] =
+          (foodQuantity(food.id) + 1)
+              .clamp(0, maxFoodQuantityPerItem)
+              .toInt();
       _state = _state.copyWith(
         coins: coins,
         foodInventory: updatedInventory,
@@ -130,6 +138,17 @@ class StoreController extends ChangeNotifier {
 
   StoreSnapshot snapshotForTransaction() {
     return _state.copyWith(coins: coins);
+  }
+
+  /// Actualiza únicamente la autoridad runtime desde una transacción ya
+  /// comprometida en el journal. No escribe a disco.
+  ///
+  /// Esta API existe para la capa de integración Pet + Store: la
+  /// materialización durable ocurre después, en la cola write-ahead.
+  void applyTransactionSnapshot(StoreSnapshot snapshot) {
+    _state = snapshot;
+    CoinStore.instance.balance = snapshot.coins;
+    notifyListeners();
   }
 
   StoreSnapshot snapshotAfterFoodConsumption(String foodId) {

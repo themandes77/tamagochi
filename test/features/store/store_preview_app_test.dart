@@ -1,10 +1,12 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/features/store/data/in_memory_store_repository.dart';
+import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/features/store/presentation/store_preview_app.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders balance and the three store categories', (tester) async {
+  testWidgets('store exposes only outfits and themes', (tester) async {
     final controller = StoreController(repository: InMemoryStoreRepository());
     await controller.initialize();
 
@@ -14,21 +16,27 @@ void main() {
     expect(find.text('500'), findsWidgets);
     expect(find.text('TRAJES'), findsOneWidget);
     expect(find.text('FONDOS'), findsOneWidget);
-    expect(find.text('COMIDA'), findsOneWidget);
+    expect(find.text('COMIDA'), findsNothing);
   });
 
-  testWidgets('food category buys repeatable food units', (tester) async {
+  testWidgets('legacy food initial kind falls back to outfits', (tester) async {
     final controller = StoreController(repository: InMemoryStoreRepository());
     await controller.initialize();
 
-    await tester.pumpWidget(StorePreviewApp(controller: controller));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: storeThemeFrom(controller.selectedTheme),
+        home: StoreScreen(
+          controller: controller,
+          initialKind: ShopItemKind.food,
+        ),
+      ),
+    );
     await tester.pump();
 
-    await tester.tap(find.text('COMIDA'));
-    await tester.pump();
-
-    expect(find.text('Comida 1'), findsWidgets);
-    expect(find.text('Comida 2'), findsWidgets);
-    expect(find.text('Comida 3'), findsWidgets);
+    expect(find.byKey(const ValueKey('category_trajes')), findsOneWidget);
+    expect(find.byKey(const ValueKey('category_fondos')), findsOneWidget);
+    expect(find.byKey(const ValueKey('category_comida')), findsNothing);
+    expect(find.text('Original'), findsWidgets);
   });
 }

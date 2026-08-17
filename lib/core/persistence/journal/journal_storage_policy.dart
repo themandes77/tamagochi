@@ -100,9 +100,10 @@ class JournalStoragePolicy implements JsonStoragePolicy {
 
   static JsonMigrationRegistry _defaultMigrations() {
     return JsonMigrationRegistry(
-      currentVersion: 2,
+      currentVersion: 3,
       steps: <int, JsonMigrationStep>{
         1: _migrateV1ToV2,
+        2: _migrateV2ToV3,
       },
     );
   }
@@ -141,4 +142,47 @@ class JournalStoragePolicy implements JsonStoragePolicy {
       'transactions': migratedTransactions,
     };
   }
+  static JsonPayload _migrateV2ToV3(JsonPayload payload) {
+    final values = payload['transactions'];
+    if (values is! List) {
+      return Map<String, Object?>.from(payload);
+    }
+
+    final migratedTransactions = <Object?>[];
+    for (final value in values) {
+      if (value is! Map) {
+        migratedTransactions.add(value);
+        continue;
+      }
+      final transaction = Map<String, Object?>.from(
+        value.cast<String, Object?>(),
+      );
+      final participants = transaction['participants'];
+      if (participants is List) {
+        transaction['participants'] = participants.map<Object?>((participant) {
+          if (participant is! Map) {
+            return participant;
+          }
+          final record = Map<String, Object?>.from(
+            participant.cast<String, Object?>(),
+          );
+          final beforeChecksum = record['beforeChecksum'];
+          if (beforeChecksum is String && beforeChecksum.isNotEmpty) {
+            record.putIfAbsent(
+              'durableBeforeChecksum',
+              () => beforeChecksum,
+            );
+          }
+          return record;
+        }).toList(growable: false);
+      }
+      migratedTransactions.add(transaction);
+    }
+
+    return <String, Object?>{
+      ...payload,
+      'transactions': migratedTransactions,
+    };
+  }
+
 }

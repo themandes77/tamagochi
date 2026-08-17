@@ -133,6 +133,7 @@ class AppBootstrap {
       controller: petController,
       repository: petRepository,
       rules: rules,
+      onDurablePersisted: lifecycleCoordinator.markTransactionSnapshotDurable,
     );
     final storeTransactionParticipant = StoreTransactionParticipant(
       controller: storeController,
@@ -160,6 +161,7 @@ class AppBootstrap {
       feedingCoordinator: feedingCoordinator,
     );
     final exitCoordinator = AppExitCoordinator(
+      feedingCoordinator: feedingCoordinator,
       petLifecycleCoordinator: lifecycleCoordinator,
       storeController: storeController,
       preferencesController: preferencesController,
@@ -238,6 +240,7 @@ class AppBootstrap {
     // Si bootstrap falló durante recovery, dispose no debe crear nuevos
     // checkpoints que cambien el baseline antes de un Reintentar. Solo espera
     // operaciones que ya estuvieran en vuelo.
+    await feedingCoordinator.flushPendingMaterializations();
     await petLifecycleCoordinator.flushPendingSaves();
     if (_initializedSuccessfully) {
       await storeController.persistRuntimeCoins();

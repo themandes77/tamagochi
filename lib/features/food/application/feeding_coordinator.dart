@@ -35,9 +35,10 @@ class FoodFeedResult {
 
 /// Coordina la única operación que cruza Pet + Store: consumir alimento.
 ///
-/// La comida se valida primero y luego Pet + inventario se escriben mediante el
-/// journal transaccional existente. Así no puede persistirse hambre sin restar
-/// inventario, ni inventario sin aplicar saciedad.
+/// La comida se valida primero y luego se compromete mediante journal
+/// write-ahead. El journal durable es el commit; Pet + inventario cambian en
+/// runtime inmediatamente después y sus snapshots se materializan en una cola
+/// serial. Así una respuesta rápida no sacrifica recovery ni atomicidad.
 class FeedingCoordinator {
   FeedingCoordinator({
     required this.petController,
@@ -70,10 +71,18 @@ class FeedingCoordinator {
     return completer.future;
   }
 
+  Future<void> flushPendingMaterializations() async {
+    // Primero deja que termine cualquier commit de alimentación ya encolado;
+    // después espera sus materializaciones. Evita que lifecycle/navegación
+    // adelante un save sobre una transacción que todavía estaba abriendo journal.
+    await _operationTail;
+    await transactionCoordinator.flushPendingMaterializations();
+  }
+
   Future<FoodFeedResult> _consumeInternal(String? foodId) async {
     final totalWatch = Stopwatch()..start();
     var storeFlush = Duration.zero;
-    var petBaseline = Duration.zero;
+    var petPrepare = Duration.zero;
     var transaction = Duration.zero;
 
     if (foodId == null) {
@@ -105,10 +114,10 @@ class FeedingCoordinator {
     final exclusiveEntryWatch = Stopwatch()..start();
     try {
       return await petLifecycleCoordinator.runExclusiveMutation(() async {
-        // Entrar a este callback significa que Pet ya esperó saves anteriores,
-        // sincronizó reloj y persistió su baseline durable. Esta medición nos
-        // deja ver cuánto cuesta exactamente esa preparación.
-        petBaseline = exclusiveEntryWatch.elapsed;
+        // En write-ahead Pet espera saves anteriores y sincroniza reloj, pero
+        // ya NO crea un checkpoint del baseline. Schema 3 conserva por separado
+        // el estado durable y el before lógico con decay aplicado.
+        petPrepare = exclusiveEntryWatch.elapsed;
 
         if (petController.isBusy) {
           return FoodFeedResult(status: FoodFeedStatus.blocked, food: food);
@@ -120,27 +129,40 @@ class FeedingCoordinator {
           return FoodFeedResult(status: FoodFeedStatus.tooFull, food: food);
         }
 
-        final petTarget = petController.state.copyWith(
-          hunger: petController.state.hunger + food.satiety,
+        final commitAt = clock.nowUtc();
+        final petLogicalBefore = petController.state.copyWith(
+          lastSavedAt: commitAt,
           rules: petController.rules,
         );
+        final petTarget = petLogicalBefore.copyWith(
+          hunger: petLogicalBefore.hunger + food.satiety,
+          rules: petController.rules,
+        );
+        final storeLogicalBefore = storeController.snapshotForTransaction();
         final storeTarget = storeController.snapshotAfterFoodConsumption(food.id);
 
         final transactionId =
-            'feed_${clock.nowUtc().microsecondsSinceEpoch}_${_transactionSequence++}';
+            'feed_${commitAt.microsecondsSinceEpoch}_${_transactionSequence++}';
 
         final transactionWatch = Stopwatch()..start();
-        await transactionCoordinator.execute(
+        await transactionCoordinator.commitWriteAhead(
           transactionId: transactionId,
           type: 'consume_food',
+          logicalBeforePayloads: <String, Map<String, Object?>>{
+            'pet': petLogicalBefore.toJson(),
+            'store': storeLogicalBefore.toJson(),
+          },
+          durableBeforePayloads: <String, Map<String, Object?>>{
+            'pet': petLifecycleCoordinator.durableState.toJson(),
+            // Si existe una alimentación anterior todavía en cola, el
+            // coordinador enlaza automáticamente contra su target. Sin cola,
+            // flushPendingSaves garantiza que este snapshot sí es durable.
+            'store': storeLogicalBefore.toJson(),
+          },
           targetPayloads: <String, Map<String, Object?>>{
             'pet': petTarget.toJson(),
             'store': storeTarget.toJson(),
           },
-          // Store ya esperó saves pendientes y Pet acaba de checkpointar su
-          // baseline dentro de runExclusiveMutation. Evitamos durabilizar por
-          // segunda vez exactamente los mismos estados.
-          baselineAlreadyDurable: true,
         );
         transaction = transactionWatch.elapsed;
 
@@ -149,14 +171,14 @@ class FeedingCoordinator {
           food: food,
           remainingQuantity: storeController.foodQuantity(food.id),
         );
-      });
+      }, checkpointBaseline: false);
     } finally {
       totalWatch.stop();
       if (kDebugMode) {
         debugPrint(
           '[NTI PERF][FEED ${food.id}] total=${totalWatch.elapsedMilliseconds}ms '
           '| storeFlush=${storeFlush.inMilliseconds}ms '
-          '| petBaseline=${petBaseline.inMilliseconds}ms '
+          '| petPrepare=${petPrepare.inMilliseconds}ms '
           '| transaction=${transaction.inMilliseconds}ms',
         );
       }

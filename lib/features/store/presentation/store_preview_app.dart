@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/customization/domain/theme_option.dart';
 import 'package:flutter_application_1/features/customization/presentation/animated_nti_preview.dart';
-import 'package:flutter_application_1/features/food/domain/food_item.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/features/store/presentation/store_back_button.dart';
@@ -149,36 +148,32 @@ class _StoreScreenState extends State<StoreScreen> {
 
   late ShopItemKind _selectedKind;
   String? _previewItemId;
-  String? _previewFoodId;
 
   StoreController get controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
-    _selectedKind = widget.initialKind;
+    _selectedKind = widget.initialKind == ShopItemKind.food
+        ? ShopItemKind.outfit
+        : widget.initialKind;
   }
 
   @override
   Widget build(BuildContext context) {
     final visibleItems = controller.itemsFor(_selectedKind);
-    final visibleFoods = _selectedKind == ShopItemKind.food
-        ? controller.foodCatalog
-        : const <FoodItem>[];
     final previewItem = _findPreviewItem();
-    final previewFood = _findPreviewFood();
     final previewOutfit = _outfitFor(previewItem) ?? controller.selectedOutfit;
     final previewTheme = _themeFor(previewItem) ?? controller.selectedTheme;
     final headerLayout = _StoreHeaderLayoutSpec.fromWidth(
       MediaQuery.sizeOf(context).width,
     );
     final usesStoreRoom = _selectedKind == ShopItemKind.outfit;
-    final isFoodCategory = _selectedKind == ShopItemKind.food;
     final headerObstructionHeight =
         headerLayout.height + MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      extendBodyBehindAppBar: usesStoreRoom,
+      extendBodyBehindAppBar: true,
       appBar: _StoreHeader(
         coins: controller.coins,
         onBack: _handleBack,
@@ -218,31 +213,23 @@ class _StoreScreenState extends State<StoreScreen> {
                     return Padding(
                       key: const ValueKey('store_showcase_header_layer'),
                       padding: EdgeInsets.only(
-                        top: usesStoreRoom
-                            ? math.max(
-                                0,
-                                headerObstructionHeight - _headerRoomUnderlap,
-                              )
-                            : 0,
+                        top: math.max(
+                          0,
+                          headerObstructionHeight - _headerRoomUnderlap,
+                        ),
                       ),
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          if (isFoodCategory)
-                            _FoodStoreShowcase(
-                              food: previewFood,
-                              bottomReservedHeight: tabsLayoutHeight,
-                            )
-                          else
-                            _CustomizationPreview(
-                              outfit: previewOutfit,
-                              theme: previewTheme,
-                              useStoreRoom: usesStoreRoom,
-                              bottomReservedHeight: tabsLayoutHeight,
-                              message: previewItem == null
-                                  ? '¡Elige un estilo!'
-                                  : '¡${previewItem.name} me queda genial!',
-                            ),
+                          _CustomizationPreview(
+                            outfit: previewOutfit,
+                            theme: previewTheme,
+                            useStoreRoom: usesStoreRoom,
+                            bottomReservedHeight: tabsLayoutHeight,
+                            message: previewItem == null
+                                ? '¡Elige un estilo!'
+                                : '¡${previewItem.name} me queda genial!',
+                          ),
                           Positioned(
                             left: 0,
                             right: 0,
@@ -262,7 +249,6 @@ class _StoreScreenState extends State<StoreScreen> {
                                       setState(() {
                                         _selectedKind = kind;
                                         _previewItemId = null;
-                                        _previewFoodId = null;
                                       });
                                     },
                                   ),
@@ -288,39 +274,7 @@ class _StoreScreenState extends State<StoreScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (isFoodCategory)
-                        Center(
-                          child: SizedBox(
-                            width: catalogGridWidth,
-                            child: Wrap(
-                              spacing: layout.cardSpacing,
-                              runSpacing: layout.cardSpacing,
-                              children: [
-                                for (final food in visibleFoods)
-                                  SizedBox(
-                                    width: itemWidth,
-                                    height: layout.cardHeightFor(_selectedKind),
-                                    child: _StoreFoodCard(
-                                      food: food,
-                                      quantity: controller.foodQuantity(food.id),
-                                      compact: compactCard,
-                                      actionButtonWidth: layout
-                                          .actionButtonWidthFor(
-                                            itemWidth,
-                                            compact: compactCard,
-                                          ),
-                                      selected: food.id == _previewFoodId,
-                                      onSelected: () {
-                                        setState(() => _previewFoodId = food.id);
-                                      },
-                                      onBuy: () => _handleFoodPurchase(food),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else if (visibleItems.isEmpty)
+                      if (visibleItems.isEmpty)
                         const _EmptyInventory()
                       else
                         Center(
@@ -393,27 +347,6 @@ class _StoreScreenState extends State<StoreScreen> {
       }
     }
     return null;
-  }
-
-  FoodItem? _findPreviewFood() {
-    final id = _previewFoodId;
-    if (id == null) {
-      return null;
-    }
-    return controller.foodById(id);
-  }
-
-  Future<void> _handleFoodPurchase(FoodItem food) async {
-    setState(() => _previewFoodId = food.id);
-    final result = await controller.buyFood(food.id);
-    if (!mounted) {
-      return;
-    }
-    _showMessage(switch (result) {
-      FoodPurchaseResult.success => 'Compra realizada.',
-      FoodPurchaseResult.insufficientFunds => 'No tienes suficientes monedas.',
-      FoodPurchaseResult.itemNotFound => 'La comida ya no está disponible.',
-    });
   }
 
   NtiOutfit? _outfitFor(ShopItem? item) {
@@ -856,251 +789,6 @@ class _NtiContactShadow extends StatelessWidget {
       ),
     );
   }
-}
-
-class _FoodStoreShowcase extends StatelessWidget {
-  const _FoodStoreShowcase({
-    required this.food,
-    required this.bottomReservedHeight,
-  });
-
-  final FoodItem? food;
-  final double bottomReservedHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 360;
-        final previewHeight = (constraints.maxWidth * 0.42).clamp(
-          compact ? 150.0 : 170.0,
-          270.0,
-        );
-        return SizedBox(
-          width: double.infinity,
-          height: previewHeight + bottomReservedHeight,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8ECF7),
-              borderRadius: BorderRadius.circular(StoreVisualTokens.panelRadius),
-              border: Border.all(color: StoreVisualTokens.purple, width: 3),
-              boxShadow: const [StoreVisualTokens.softShadow],
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(bottom: bottomReservedHeight),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    _FoodPlaceholderVisual(
-                      food: food,
-                      size: compact ? 58 : 72,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      food?.name ?? 'Comida',
-                      style: TextStyle(
-                        color: StoreVisualTokens.purpleDark,
-                        fontWeight: FontWeight.w800,
-                        fontSize: compact ? 20 : 24,
-                        shadows: const [StoreVisualTokens.textShadow],
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      food == null
-                          ? 'Compra alimentos para el inventario.'
-                          : '+${_formatSatiety(food!.satiety)} saciedad · '
-                                '${food!.price} monedas',
-                      style: const TextStyle(
-                        color: Color(0xFF77559A),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _StoreFoodCard extends StatelessWidget {
-  const _StoreFoodCard({
-    required this.food,
-    required this.quantity,
-    required this.compact,
-    required this.actionButtonWidth,
-    required this.selected,
-    required this.onSelected,
-    required this.onBuy,
-  });
-
-  final FoodItem food;
-  final int quantity;
-  final bool compact;
-  final double actionButtonWidth;
-  final bool selected;
-  final VoidCallback onSelected;
-  final VoidCallback onBuy;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: selected ? 1 : 0.985,
-      duration: StoreVisualTokens.quick,
-      child: StoreItemCardFrame(
-        selected: selected,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            key: ValueKey('store_food_${food.id}'),
-            borderRadius: BorderRadius.circular(StoreVisualTokens.cardRadius),
-            onTap: onSelected,
-            child: Padding(
-              padding: compact
-                  ? const EdgeInsets.fromLTRB(7, 7, 7, 7)
-                  : const EdgeInsets.fromLTRB(10, 10, 10, 7),
-              child: Column(
-                children: <Widget>[
-                  Expanded(
-                    child: Center(
-                      child: _FoodPlaceholderVisual(
-                        food: food,
-                        size: compact ? 60 : 78,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    food.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: StoreVisualTokens.purpleDark,
-                      fontWeight: FontWeight.w700,
-                      fontSize: compact ? 14 : 18,
-                      shadows: const [StoreVisualTokens.textShadow],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '+${_formatSatiety(food.satiety)} saciedad · x$quantity',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: const Color(0xFF77559A),
-                      fontWeight: FontWeight.w600,
-                      fontSize: compact ? 10 : 12,
-                    ),
-                  ),
-                  SizedBox(height: compact ? 5 : 7),
-                  Align(
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: actionButtonWidth,
-                      height: compact ? 30 : 32,
-                      child: Semantics(
-                        button: true,
-                        label: 'Comprar ${food.name} por ${food.price} monedas',
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            key: ValueKey('store_food_buy_${food.id}'),
-                            borderRadius: BorderRadius.circular(18),
-                            onTap: onBuy,
-                            child: StoreItemActionButtonFrame(
-                              isPrice: true,
-                              child: Padding(
-                                padding: compact
-                                    ? const EdgeInsets.fromLTRB(6, 3, 6, 5)
-                                    : const EdgeInsets.fromLTRB(8, 4, 8, 6),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: <Widget>[
-                                    Text(
-                                      '${food.price}',
-                                      style: TextStyle(
-                                        color: StoreVisualTokens.purpleDark,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: compact ? 12 : 15,
-                                        height: 1,
-                                        shadows: const [
-                                          StoreVisualTokens.textShadow,
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(width: compact ? 3 : 5),
-                                    Image.asset(
-                                      'assets/images/ui/coin_star_v1.png',
-                                      width: compact ? 18 : 20,
-                                      height: compact ? 18 : 20,
-                                      fit: BoxFit.contain,
-                                      filterQuality: FilterQuality.high,
-                                      excludeFromSemantics: true,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FoodPlaceholderVisual extends StatelessWidget {
-  const _FoodPlaceholderVisual({required this.food, required this.size});
-
-  final FoodItem? food;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final assetPath = food?.assetPath;
-    if (assetPath != null) {
-      return Image.asset(
-        assetPath,
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
-      );
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE9D8F4),
-        shape: BoxShape.circle,
-        border: Border.all(color: StoreVisualTokens.purple, width: 2),
-      ),
-      child: Icon(
-        Icons.restaurant_rounded,
-        color: StoreVisualTokens.purple,
-        size: size * 0.52,
-      ),
-    );
-  }
-}
-
-String _formatSatiety(double value) {
-  return value == value.roundToDouble()
-      ? value.toInt().toString()
-      : value.toStringAsFixed(1);
 }
 
 class _StoreItemCard extends StatelessWidget {

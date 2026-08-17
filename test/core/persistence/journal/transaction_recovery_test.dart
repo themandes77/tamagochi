@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_application_1/core/persistence/checksum_service.dart';
@@ -15,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const checksum = Sha256ChecksumService();
 
-  test('journal schema 1 migrates to schema 2 without inventing beforePayload', () {
+  test('journal schema 1 migrates through schema 3 without inventing beforePayload', () {
     final policy = JournalStoragePolicy();
     final migrated = policy.migrate(
       fromVersion: 1,
@@ -42,11 +43,13 @@ void main() {
       },
     );
 
-    expect(policy.currentSchemaVersion, 2);
+    expect(policy.currentSchemaVersion, 3);
     final transaction = JournalTransaction.fromJson(
       (migrated['transactions']! as List).single as Map<String, Object?>,
     );
-    expect(transaction.participants['pet']!.beforePayload, isNull);
+    final participant = transaction.participants['pet']!;
+    expect(participant.beforePayload, isNull);
+    expect(participant.durableBeforeChecksum, 'before');
   });
 
   test('removes every legacy conflict with zero applied participants', () async {
@@ -294,6 +297,44 @@ void main() {
     expect(repository.items, isEmpty);
   });
 
+  test('successful cleanup can be deferred without delaying commit', () async {
+    final repository = _BlockingRemoveJournalRepository();
+    final now = DateTime.utc(2026, 8, 11, 11, 30);
+    final pet = _MemoryParticipant('pet', <String, Object?>{'value': 1});
+    final store = _MemoryParticipant('store', <String, Object?>{'value': 10});
+
+    final coordinator = CrossModuleTransactionCoordinator(
+      repository: repository,
+      participants: <TransactionParticipant>[pet, store],
+      checksumService: checksum,
+      clock: _FixedClock(now),
+    );
+
+    await coordinator.execute(
+      transactionId: 'deferred_feed',
+      type: 'consume_food',
+      targetPayloads: <String, Map<String, Object?>>{
+        'pet': <String, Object?>{'value': 2},
+        'store': <String, Object?>{'value': 9},
+      },
+      baselineAlreadyDurable: true,
+      deferSuccessfulCleanup: true,
+    );
+
+    // execute ya terminó: ambos participantes llegaron a target aunque el
+    // remove del journal siga bloqueado en segundo plano.
+    expect(pet.payload, <String, Object?>{'value': 2});
+    expect(store.payload, <String, Object?>{'value': 9});
+    expect(repository.removeStarted.isCompleted, isTrue);
+    expect(repository.items.containsKey('deferred_feed'), isTrue);
+
+    repository.allowRemove.complete();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(repository.items.containsKey('deferred_feed'), isFalse);
+  });
+
   test('default path still durabilizes baseline defensively', () async {
     final repository = _MemoryJournalRepository();
     final now = DateTime.utc(2026, 8, 11, 10);
@@ -371,6 +412,127 @@ void main() {
     expect(repository.items, isEmpty);
   });
 
+  test('schema 3 recovery accepts durable before distinct from logical before', () async {
+    final repository = _MemoryJournalRepository();
+    final now = DateTime.utc(2026, 8, 12, 10);
+    final durableBefore = <String, Object?>{'value': 1};
+    final logicalBefore = <String, Object?>{'value': 2};
+    final target = <String, Object?>{'value': 3};
+    final pet = _MemoryParticipant('pet', durableBefore);
+
+    repository.items['wal_recovery'] = JournalTransaction(
+      transactionId: 'wal_recovery',
+      type: 'consume_food',
+      createdAt: now,
+      updatedAt: now,
+      participants: <String, JournalParticipantRecord>{
+        'pet': JournalParticipantRecord(
+          participantKey: 'pet',
+          beforePayload: logicalBefore,
+          beforeChecksum: checksum.checksumCanonical(logicalBefore),
+          durableBeforeChecksum: checksum.checksumCanonical(durableBefore),
+          targetChecksum: checksum.checksumCanonical(target),
+          targetPayload: target,
+        ),
+      },
+    );
+
+    final coordinator = CrossModuleTransactionCoordinator(
+      repository: repository,
+      participants: <TransactionParticipant>[pet],
+      checksumService: checksum,
+      clock: _FixedClock(now),
+    );
+
+    await coordinator.recoverPending();
+
+    expect(pet.payload, target);
+    expect(repository.items, isEmpty);
+  });
+
+  test('write-ahead commits rapid actions while materialization stays serial', () async {
+    final repository = _MemoryJournalRepository();
+    final now = DateTime.utc(2026, 8, 12, 10, 30);
+    final gate = Completer<void>();
+    final pet = _DeferredMemoryParticipant(
+      'pet',
+      <String, Object?>{'value': 1},
+      persistGate: gate.future,
+    );
+    final store = _DeferredMemoryParticipant(
+      'store',
+      <String, Object?>{'value': 10},
+      persistGate: gate.future,
+    );
+
+    final coordinator = CrossModuleTransactionCoordinator(
+      repository: repository,
+      participants: <TransactionParticipant>[pet, store],
+      checksumService: checksum,
+      clock: _FixedClock(now),
+    );
+
+    final pet1 = <String, Object?>{'value': 2};
+    final store1 = <String, Object?>{'value': 9};
+    await coordinator.commitWriteAhead(
+      transactionId: 'wal_1',
+      type: 'consume_food',
+      logicalBeforePayloads: <String, Map<String, Object?>>{
+        'pet': <String, Object?>{'value': 1},
+        'store': <String, Object?>{'value': 10},
+      },
+      durableBeforePayloads: <String, Map<String, Object?>>{
+        'pet': <String, Object?>{'value': 1},
+        'store': <String, Object?>{'value': 10},
+      },
+      targetPayloads: <String, Map<String, Object?>>{
+        'pet': pet1,
+        'store': store1,
+      },
+    );
+
+    expect(pet.runtimePayload, pet1);
+    expect(store.runtimePayload, store1);
+    expect(pet.durablePayload, <String, Object?>{'value': 1});
+    expect(repository.items.containsKey('wal_1'), isTrue);
+
+    final pet2 = <String, Object?>{'value': 3};
+    final store2 = <String, Object?>{'value': 8};
+    await coordinator.commitWriteAhead(
+      transactionId: 'wal_2',
+      type: 'consume_food',
+      logicalBeforePayloads: <String, Map<String, Object?>>{
+        'pet': pet1,
+        'store': store1,
+      },
+      // El caller todavía puede ver el durable original; la cola debe enlazar
+      // wal_2 contra el target comprometido de wal_1.
+      durableBeforePayloads: <String, Map<String, Object?>>{
+        'pet': <String, Object?>{'value': 1},
+        'store': <String, Object?>{'value': 10},
+      },
+      targetPayloads: <String, Map<String, Object?>>{
+        'pet': pet2,
+        'store': store2,
+      },
+    );
+
+    final second = repository.items['wal_2']!;
+    expect(
+      second.participants['pet']!.durableBeforeChecksum,
+      checksum.checksumCanonical(pet1),
+    );
+    expect(pet.runtimePayload, pet2);
+    expect(store.runtimePayload, store2);
+
+    gate.complete();
+    await coordinator.flushPendingMaterializations();
+
+    expect(pet.durablePayload, pet2);
+    expect(store.durablePayload, store2);
+    expect(repository.items, isEmpty);
+  });
+
   test('journal corruption stays fail-closed across retries', () async {
     final directory = await Directory.systemTemp.createTemp('nti_journal_test_');
     addTearDown(() => directory.delete(recursive: true));
@@ -437,6 +599,53 @@ class _MemoryParticipant implements TransactionParticipant {
   }
 }
 
+class _DeferredMemoryParticipant
+    implements WriteAheadTransactionParticipant {
+  _DeferredMemoryParticipant(
+    this.participantKey,
+    Map<String, Object?> initial, {
+    required this.persistGate,
+  })  : runtimePayload = Map<String, Object?>.from(initial),
+        durablePayload = Map<String, Object?>.from(initial);
+
+  @override
+  final String participantKey;
+  final Future<void> persistGate;
+  Map<String, Object?> runtimePayload;
+  Map<String, Object?> durablePayload;
+
+  @override
+  Future<Map<String, Object?>> readPayload() async =>
+      Map<String, Object?>.from(runtimePayload);
+
+  @override
+  Future<void> writePayload(Map<String, Object?> payload) async {
+    validatePayload(payload);
+    runtimePayload = Map<String, Object?>.from(payload);
+    durablePayload = Map<String, Object?>.from(payload);
+  }
+
+  @override
+  Future<void> applyRuntimePayload(Map<String, Object?> payload) async {
+    validatePayload(payload);
+    runtimePayload = Map<String, Object?>.from(payload);
+  }
+
+  @override
+  Future<void> persistPayload(Map<String, Object?> payload) async {
+    validatePayload(payload);
+    await persistGate;
+    durablePayload = Map<String, Object?>.from(payload);
+  }
+
+  @override
+  void validatePayload(Map<String, Object?> payload) {
+    if (payload['value'] is! int) {
+      throw const FormatException('value debe ser int.');
+    }
+  }
+}
+
 class _MemoryJournalRepository implements TransactionJournalRepository {
   final Map<String, JournalTransaction> items = <String, JournalTransaction>{};
   int upsertCount = 0;
@@ -454,6 +663,21 @@ class _MemoryJournalRepository implements TransactionJournalRepository {
   @override
   Future<void> remove(String transactionId) async {
     removeCount++;
+    items.remove(transactionId);
+  }
+}
+
+class _BlockingRemoveJournalRepository extends _MemoryJournalRepository {
+  final Completer<void> removeStarted = Completer<void>();
+  final Completer<void> allowRemove = Completer<void>();
+
+  @override
+  Future<void> remove(String transactionId) async {
+    removeCount++;
+    if (!removeStarted.isCompleted) {
+      removeStarted.complete();
+    }
+    await allowRemove.future;
     items.remove(transactionId);
   }
 }
