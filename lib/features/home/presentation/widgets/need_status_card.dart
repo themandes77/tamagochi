@@ -17,73 +17,82 @@ class NeedStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
-      child: SizedBox(
-        height: 34,
-        width: double.infinity,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8E9D8).withValues(alpha: 0.98),
-            borderRadius: BorderRadius.circular(11),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.90),
-              width: 1.25,
-            ),
-            boxShadow: const <BoxShadow>[
-              BoxShadow(
-                color: Color(0x1F000000),
-                blurRadius: 2.5,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            child: Row(
-              children: <Widget>[
-            SizedBox.square(
-              dimension: 18,
-              child: Image.asset(iconAsset, fit: BoxFit.contain),
-            ),
-            const SizedBox(width: 3),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.only(left: 1),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        label.toUpperCase(),
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Color(0xFF532F3C),
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                          height: 0.95,
-                          letterSpacing: -0.1,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2.5),
-                  SegmentedStatusBar(
-                    value: value.clamp(0.0, 10.0) / 10.0,
-                    color: color,
-                    height: 6,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = (constraints.maxWidth / 78).clamp(0.84, 1.06).toDouble();
+
+        return Align(
+          alignment: Alignment.center,
+          child: SizedBox(
+            height: (34 * scale).clamp(31.0, 36.0).toDouble(),
+            width: double.infinity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8E9D8).withValues(alpha: 0.98),
+                borderRadius: BorderRadius.circular(11 * scale),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.90),
+                  width: 1.25,
+                ),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x1F000000),
+                    blurRadius: 2.5,
+                    offset: Offset(0, 1),
                   ),
                 ],
               ),
-            ),
-              ],
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 4 * scale,
+                  vertical: 1,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    SizedBox.square(
+                      dimension: 18 * scale,
+                      child: Image.asset(iconAsset, fit: BoxFit.contain),
+                    ),
+                    SizedBox(width: 3 * scale),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Padding(
+                            padding: EdgeInsets.only(left: 1 * scale),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                label.toUpperCase(),
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: const Color(0xFF532F3C),
+                                  fontSize: 8 * scale,
+                                  fontWeight: FontWeight.w900,
+                                  height: 0.95,
+                                  letterSpacing: -0.1,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 2.5 * scale),
+                          SegmentedStatusBar(
+                            value: value.clamp(0.0, 10.0) / 10.0,
+                            color: color,
+                            height: 6 * scale,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

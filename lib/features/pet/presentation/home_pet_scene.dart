@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
@@ -7,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/actors/player.dart';
 import 'package:flutter_application_1/features/customization/presentation/room_background.dart';
 import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
+import 'package:flutter_application_1/features/food/data/default_food_catalog.dart';
 import 'package:flutter_application_1/features/pet/domain/pet_activity.dart';
 import 'package:flutter_application_1/features/pet/domain/pet_state.dart';
 import 'package:flutter_application_1/features/pet/presentation/nti_care_visual_state.dart';
@@ -25,6 +27,7 @@ class HomePetScene extends FlameGame {
     required this.onCleaningContactStopped,
     required this.onCleaningGestureEnded,
     required this.isFoodToolSelected,
+    required this.selectedFoodId,
     required this.isCleaningToolSelected,
     required this.isCleaningActive,
     required this.isFullyClean,
@@ -39,6 +42,7 @@ class HomePetScene extends FlameGame {
   final VoidCallback onCleaningContactStopped;
   final Future<void> Function() onCleaningGestureEnded;
   final bool Function() isFoodToolSelected;
+  final String? Function() selectedFoodId;
   final bool Function() isCleaningToolSelected;
   final bool Function() isCleaningActive;
   final bool Function() isFullyClean;
@@ -69,6 +73,7 @@ class HomePetScene extends FlameGame {
       onCleaningContactStopped: onCleaningContactStopped,
       onCleaningGestureEnded: onCleaningGestureEnded,
       isFoodToolSelected: isFoodToolSelected,
+      selectedFoodId: selectedFoodId,
       isCleaningToolSelected: isCleaningToolSelected,
       isCleaningActive: isCleaningActive,
       isFullyClean: isFullyClean,
@@ -135,6 +140,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     required this.onCleaningContactStopped,
     required this.onCleaningGestureEnded,
     required this.isFoodToolSelected,
+    required this.selectedFoodId,
     required this.isCleaningToolSelected,
     required this.isCleaningActive,
     required this.isFullyClean,
@@ -146,12 +152,17 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   final VoidCallback onCleaningContactStopped;
   final Future<void> Function() onCleaningGestureEnded;
   final bool Function() isFoodToolSelected;
+  final String? Function() selectedFoodId;
   final bool Function() isCleaningToolSelected;
   final bool Function() isCleaningActive;
   final bool Function() isFullyClean;
 
   Sprite? _soapSprite;
+  final Map<String, Sprite> _foodSprites = <String, Sprite>{};
   Vector2? _soapPosition;
+  String? _consumingFoodId;
+  double _consumeElapsed = 0;
+  double _foodHoverPhase = 0;
   bool _dragGestureActive = false;
   int? _activePointerId;
   bool _contactAccepted = false;
@@ -161,6 +172,15 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     await super.onLoad();
     size = findGame()!.size;
     _soapSprite = await Sprite.load('soap.png');
+    for (final food in defaultFoodCatalog) {
+      final assetPath = food.assetPath;
+      if (assetPath == null) {
+        continue;
+      }
+      _foodSprites[food.id] = await Sprite.load(
+        assetPath.replaceFirst('assets/images/', ''),
+      );
+    }
   }
 
   @override
@@ -208,6 +228,10 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
       final result = await onFoodTap();
       switch (result.status) {
         case FoodFeedStatus.success:
+          final foodId = result.food?.id;
+          if (foodId != null) {
+            _startFoodConsumeAnimation(foodId);
+          }
           nti.eat();
           nti.say('¡Qué rico! Ya tengo energía.');
           break;
@@ -286,6 +310,14 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   @override
   void update(double dt) {
     super.update(dt);
+    _foodHoverPhase += dt * 2.8;
+    if (_consumingFoodId != null) {
+      _consumeElapsed += dt;
+      if (_consumeElapsed >= _foodConsumeDuration) {
+        _consumingFoodId = null;
+        _consumeElapsed = 0;
+      }
+    }
     if (_dragGestureActive &&
         (!isCleaningToolSelected() ||
             (_contactAccepted && !isCleaningActive()))) {
@@ -297,6 +329,8 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   @override
   void render(Canvas canvas) {
     super.render(canvas);
+    _renderSelectedFood(canvas);
+
     final sprite = _soapSprite;
     final position = _soapPosition;
     if (sprite == null || position == null) {
@@ -310,6 +344,60 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
       canvas,
       position: position - Vector2.all(soapSize / 2),
       size: Vector2.all(soapSize),
+    );
+  }
+
+  static const double _foodConsumeDuration = 0.32;
+
+  void _startFoodConsumeAnimation(String foodId) {
+    if (!_foodSprites.containsKey(foodId)) {
+      return;
+    }
+    _consumingFoodId = foodId;
+    _consumeElapsed = 0;
+  }
+
+  void _renderSelectedFood(Canvas canvas) {
+    final foodId = _consumingFoodId ?? selectedFoodId();
+    if (!isFoodToolSelected() && _consumingFoodId == null) {
+      return;
+    }
+    if (foodId == null) {
+      return;
+    }
+    final sprite = _foodSprites[foodId];
+    if (sprite == null) {
+      return;
+    }
+
+    final scaleX = nti.scale.x.abs();
+    final scaleY = nti.scale.y.abs();
+    final visualWidth = nti.size.x * scaleX;
+    final visualHeight = nti.size.y * scaleY;
+    final baseSize = (visualWidth * 0.24).clamp(48.0, 78.0).toDouble();
+    final hover = nti.position +
+        Vector2(
+          -visualWidth * 0.34,
+          visualHeight * 0.24 + math.sin(_foodHoverPhase) * 2.4,
+        );
+
+    var center = hover;
+    var drawSize = baseSize;
+    final consuming = _consumingFoodId != null;
+    if (consuming) {
+      final rawT = (_consumeElapsed / _foodConsumeDuration)
+          .clamp(0.0, 1.0)
+          .toDouble();
+      final t = 1 - math.pow(1 - rawT, 3).toDouble();
+      final target = nti.position + Vector2(0, visualHeight * 0.05);
+      center = hover + (target - hover) * t;
+      drawSize = baseSize * (1 - 0.46 * t);
+    }
+
+    sprite.render(
+      canvas,
+      position: center - Vector2.all(drawSize / 2),
+      size: Vector2.all(drawSize),
     );
   }
 

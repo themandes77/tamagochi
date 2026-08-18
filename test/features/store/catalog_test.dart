@@ -37,5 +37,13 @@ void main() {
     expect(defaultFoodCatalog[1].satiety, 5);
     expect(defaultFoodCatalog[2].price, 5);
     expect(defaultFoodCatalog[2].satiety, 10);
+    expect(
+      defaultFoodCatalog.map((item) => item.assetPath).toList(),
+      const <String?>[
+        'assets/images/ui/food_hashtag.png',
+        'assets/images/ui/food_like.png',
+        'assets/images/ui/food_anniversary_cake.png',
+      ],
+    );
   });
 }

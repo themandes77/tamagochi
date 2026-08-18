@@ -63,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onCleaningGestureEnded: widget.homeController.finishCleaningGesture,
       isFoodToolSelected: () =>
           widget.homeController.selectedTool == CareTool.food,
+      selectedFoodId: () => widget.homeController.selectedFoodId,
       isCleaningToolSelected: () =>
           widget.homeController.selectedTool == CareTool.soap,
       isCleaningActive: () => widget.homeController.isCleaning,
@@ -270,11 +271,14 @@ class _HomeScreenState extends State<HomeScreen> {
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final needHeight = (constraints.maxHeight * 0.078)
-                    .clamp(48.0, 58.0)
+                final widthFactor = (constraints.maxWidth / 360)
+                    .clamp(0.88, 1.08)
                     .toDouble();
-                final actionHeight = (constraints.maxHeight * 0.15)
-                    .clamp(94.0, 124.0)
+                final needHeight = (constraints.maxHeight * 0.078 * widthFactor)
+                    .clamp(46.0, 60.0)
+                    .toDouble();
+                final actionHeight = (constraints.maxHeight * 0.15 * widthFactor)
+                    .clamp(92.0, 126.0)
                     .toDouble();
 
                 return Padding(
@@ -439,95 +443,112 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildNeedRow() {
     final state = widget.homeController.petState;
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: NeedStatusCard(
-            label: 'Comida',
-            value: state.hunger,
-            color: const Color(0xFF62C46E),
-            iconAsset: AppUiAssets.foodIcon,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: NeedStatusCard(
-            label: 'Limpieza',
-            value: state.cleanliness,
-            color: const Color(0xFF55BDEB),
-            iconAsset: AppUiAssets.cleanlinessIcon,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: NeedStatusCard(
-            label: 'Energía',
-            value: state.energy,
-            color: const Color(0xFFF2A65A),
-            iconAsset: AppUiAssets.energyIcon,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: NeedStatusCard(
-            label: 'Felicidad',
-            value: state.fun,
-            color: const Color(0xFFE46AB1),
-            iconAsset: AppUiAssets.funIcon,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = (constraints.maxWidth * 0.011)
+            .clamp(2.5, 4.5)
+            .toDouble();
+
+        return Row(
+          children: <Widget>[
+            Expanded(
+              child: NeedStatusCard(
+                label: 'Comida',
+                value: state.hunger,
+                color: const Color(0xFF62C46E),
+                iconAsset: AppUiAssets.foodIcon,
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: NeedStatusCard(
+                label: 'Limpieza',
+                value: state.cleanliness,
+                color: const Color(0xFF55BDEB),
+                iconAsset: AppUiAssets.cleanlinessIcon,
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: NeedStatusCard(
+                label: 'Energía',
+                value: state.energy,
+                color: const Color(0xFFF2A65A),
+                iconAsset: AppUiAssets.energyIcon,
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: NeedStatusCard(
+                label: 'Felicidad',
+                value: state.fun,
+                color: const Color(0xFFE46AB1),
+                iconAsset: AppUiAssets.funIcon,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildActionRow() {
     final controller = widget.homeController;
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: HomeActionButton(
-            label: 'Comer',
-            backgroundAsset: AppUiAssets.actionFeed,
-            enabled: controller.canUseCareActions,
-            selected: controller.selectedTool == CareTool.food,
-            onPressed: () => unawaited(_openFoodInventory()),
-          ),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: HomeActionButton(
-            label: 'Limpiar',
-            backgroundAsset: AppUiAssets.actionClean,
-            enabled: controller.canUseCareActions,
-            selected: controller.selectedTool == CareTool.soap,
-            onPressed: () {
-              _closeFoodInventory();
-              unawaited(controller.toggleTool(CareTool.soap));
-            },
-          ),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: HomeActionButton(
-            label: 'Jugar',
-            backgroundAsset: AppUiAssets.actionPlay,
-            enabled:
-                widget.onPlayRequested != null &&
-                controller.canNavigateFromHome,
-            onPressed: () => unawaited(_requestPlay()),
-          ),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: HomeActionButton(
-            label: 'Dormir',
-            backgroundAsset: AppUiAssets.actionSleep,
-            enabled: controller.canToggleResting,
-            selected: controller.isResting,
-            onPressed: () => unawaited(_toggleRest()),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = (constraints.maxWidth * 0.018)
+            .clamp(4.0, 8.0)
+            .toDouble();
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Expanded(
+              child: HomeActionButton(
+                label: 'Comer',
+                backgroundAsset: AppUiAssets.actionFeed,
+                enabled: controller.canUseCareActions,
+                selected: controller.selectedTool == CareTool.food,
+                onPressed: () => unawaited(_openFoodInventory()),
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: HomeActionButton(
+                label: 'Limpiar',
+                backgroundAsset: AppUiAssets.actionClean,
+                enabled: controller.canUseCareActions,
+                selected: controller.selectedTool == CareTool.soap,
+                onPressed: () {
+                  _closeFoodInventory();
+                  unawaited(controller.toggleTool(CareTool.soap));
+                },
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: HomeActionButton(
+                label: 'Jugar',
+                backgroundAsset: AppUiAssets.actionPlay,
+                enabled:
+                    widget.onPlayRequested != null &&
+                    controller.canNavigateFromHome,
+                onPressed: () => unawaited(_requestPlay()),
+              ),
+            ),
+            SizedBox(width: gap),
+            Expanded(
+              child: HomeActionButton(
+                label: 'Dormir',
+                backgroundAsset: AppUiAssets.actionSleep,
+                enabled: controller.canToggleResting,
+                selected: controller.isResting,
+                onPressed: () => unawaited(_toggleRest()),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
