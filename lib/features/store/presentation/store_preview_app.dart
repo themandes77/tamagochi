@@ -65,10 +65,16 @@ class StorePreviewApp extends StatelessWidget {
 }
 
 class StoreScreen extends StatefulWidget {
-  const StoreScreen({required this.controller, this.onClose, super.key});
+  const StoreScreen({
+    required this.controller,
+    this.onClose,
+    this.initialKind = ShopItemKind.outfit,
+    super.key,
+  });
 
   final StoreController controller;
   final VoidCallback? onClose;
+  final ShopItemKind initialKind;
 
   @override
   State<StoreScreen> createState() => _StoreScreenState();
@@ -140,10 +146,18 @@ class _StoreLayoutSpec {
 class _StoreScreenState extends State<StoreScreen> {
   static const _headerRoomUnderlap = 18.0;
 
-  var _selectedKind = ShopItemKind.outfit;
+  late ShopItemKind _selectedKind;
   String? _previewItemId;
 
   StoreController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedKind = widget.initialKind == ShopItemKind.food
+        ? ShopItemKind.outfit
+        : widget.initialKind;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +173,7 @@ class _StoreScreenState extends State<StoreScreen> {
         headerLayout.height + MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      extendBodyBehindAppBar: usesStoreRoom,
+      extendBodyBehindAppBar: true,
       appBar: _StoreHeader(
         coins: controller.coins,
         onBack: _handleBack,
@@ -199,12 +213,10 @@ class _StoreScreenState extends State<StoreScreen> {
                     return Padding(
                       key: const ValueKey('store_showcase_header_layer'),
                       padding: EdgeInsets.only(
-                        top: usesStoreRoom
-                            ? math.max(
-                                0,
-                                headerObstructionHeight - _headerRoomUnderlap,
-                              )
-                            : 0,
+                        top: math.max(
+                          0,
+                          headerObstructionHeight - _headerRoomUnderlap,
+                        ),
                       ),
                       child: Stack(
                         clipBehavior: Clip.none,

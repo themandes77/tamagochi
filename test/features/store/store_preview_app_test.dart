@@ -137,12 +137,11 @@ void main() {
     final showcaseRect = tester.getRect(
       find.byKey(const ValueKey('store_theme_showcase')),
     );
-    final backgroundRect = tester.getRect(
-      find.byKey(const ValueKey('store_theme_background_asset')),
-    );
-    final background = tester.widget<Image>(
-      find.byKey(const ValueKey('store_theme_background_asset')),
-    );
+    final selectedBackground = find
+        .byKey(const ValueKey('store_theme_background_asset'))
+        .last;
+    final backgroundRect = tester.getRect(selectedBackground);
+    final background = tester.widget<Image>(selectedBackground);
 
     expect(backgroundRect, showcaseRect.deflate(3));
     expect(background.fit, BoxFit.cover);

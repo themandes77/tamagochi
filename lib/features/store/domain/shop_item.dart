@@ -1,4 +1,4 @@
-enum ShopItemKind { outfit, theme }
+enum ShopItemKind { outfit, theme, food }
 
 class ShopItem {
   const ShopItem({

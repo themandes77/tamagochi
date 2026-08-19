@@ -1,15 +1,17 @@
-import 'package:flutter_application_1/actors/player.dart';
-import 'package:flutter_application_1/features/store/presentation/store_access_button.dart';
-import 'package:flutter_application_1/gui.dart';
-import 'package:flutter_application_1/nti_tamagochi.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_application_1/features/pet/domain/pet_rules.dart';
+import 'package:flutter_application_1/features/pet/domain/pet_state.dart';
 
 void main() {
-  test('NtiTamagochi creates the shared game components', () {
-    final game = NtiTamagochi();
+  test('nti inicia con sus cuatro necesidades completas', () {
+    final state = PetState.initial(
+      nowUtc: DateTime.utc(2026, 8, 4),
+      rules: const PetRules(),
+    );
 
-    expect(game.nti, isA<Nti>());
-    expect(game.toolBar, isA<ToolBar>());
-    expect(game.storeAccessButton, isA<StoreAccessButton>());
+    expect(state.hunger, 10);
+    expect(state.cleanliness, 10);
+    expect(state.energy, 10);
+    expect(state.fun, 10);
   });
 }

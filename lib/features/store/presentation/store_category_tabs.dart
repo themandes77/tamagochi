@@ -26,16 +26,16 @@ class StoreCategoryTabs extends StatelessWidget {
         final compact = constraints.maxWidth < 360;
         final tabHeight = visualHeightForWidth(constraints.maxWidth);
         final widthFactor = compact
-            ? 0.96
+            ? 0.86
             : constraints.maxWidth < 600
-            ? 0.82
-            : 0.76;
+            ? 0.72
+            : 0.64;
 
         return Center(
           child: FractionallySizedBox(
             widthFactor: widthFactor,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
+              constraints: const BoxConstraints(maxWidth: 620),
               child: SizedBox(
                 height: layoutHeightForWidth(constraints.maxWidth),
                 child: OverflowBox(
@@ -53,7 +53,7 @@ class StoreCategoryTabs extends StatelessWidget {
                           onTap: () => onSelected(ShopItemKind.outfit),
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       Expanded(
                         child: _StoreCategoryTab(
                           label: 'FONDOS',

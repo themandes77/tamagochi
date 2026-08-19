@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('themes expose stable unique ids and background assets', () {
     expect(themeOptionById('original')?.displayName, 'Original');
-    expect(themeOptionById('original')?.backgroundAssetPath, isNull);
+    expect(
+      themeOptionById('original')?.backgroundAssetPath,
+      'backgrounds/room_original.png',
+    );
     expect(themeOptionById('normal')?.displayName, 'Aniversario');
     expect(
       themeOptionById('normal')?.backgroundAssetPath,

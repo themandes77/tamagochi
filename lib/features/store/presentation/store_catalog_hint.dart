@@ -16,10 +16,18 @@ class StoreCatalogHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isStorePage && selectedKind == ShopItemKind.food) {
+      return const SizedBox.shrink();
+    }
+
     final message = isStorePage
-        ? selectedKind == ShopItemKind.outfit
-              ? 'Los trajes cambian la apariencia de tu NTI.'
-              : 'Los fondos transforman la habitación de NTI.'
+        ? switch (selectedKind) {
+            ShopItemKind.outfit =>
+              'Los trajes cambian la apariencia de tu NTI.',
+            ShopItemKind.theme =>
+              'Los fondos transforman la habitación de NTI.',
+            ShopItemKind.food => '',
+          }
         : 'Toca un artículo para verlo y equiparlo.';
 
     return Padding(
