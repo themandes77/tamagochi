@@ -216,7 +216,7 @@ class Recoleccion extends PositionComponent
           case _ItemType.fruit:
           case _ItemType.like:
             _score++;
-            if (_score % 20 == 0) {
+            if (_score % 10 == 0) {
               _earnedCoins++;
               _pendingCoins++;
             }

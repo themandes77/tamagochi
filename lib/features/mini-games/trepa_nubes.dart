@@ -54,6 +54,7 @@ class TrepaNubes extends PositionComponent
   static const double playerW = 60;
   static const double playerH = 75;
   static const double playerCollisionInset = 10;
+  static const double launchSeparation = 1;
   static const double platGap = 60;
   static const double gapVariance = 20;
   static const double baseScrollSpeed = 80;
@@ -82,7 +83,6 @@ class TrepaNubes extends PositionComponent
   final List<_Coin> _coins = [];
   int _platformsSinceCoin = 0;
   int _nextCoinInterval = 0;
-  _Platform? _standingOn;
   Sprite? _backgroundSprite;
   Sprite? _platformSprite;
   Sprite? _brittlePlatformSprite;
@@ -180,7 +180,6 @@ class TrepaNubes extends PositionComponent
 
     for (final plat in _platforms) {
       if (plat.type == _PlatformType.moving) {
-        final prevX = plat.x;
         plat.x += plat.vx * dt;
         if (plat.x < plat.baseX - plat.range) {
           plat.x = plat.baseX - plat.range;
@@ -190,14 +189,6 @@ class TrepaNubes extends PositionComponent
           plat.vx = -plat.vx;
         }
         plat.x = plat.x.clamp(0.0, size.x - plat.w);
-        if (identical(_standingOn, plat) &&
-            py + playerH >= plat.y - 6 &&
-            py + playerH <= plat.y + 6 &&
-            px + playerW - playerCollisionInset > plat.x &&
-            px + playerCollisionInset < plat.x + plat.w) {
-          px = (px + (plat.x - prevX)).clamp(0, size.x - playerW);
-          py = plat.y - playerH;
-        }
       }
       if (plat.type == _PlatformType.dissolving && plat.dissolving) {
         plat.dissolveTimer -= dt;
@@ -209,13 +200,12 @@ class TrepaNubes extends PositionComponent
     py += pvy * dt;
 
     if (pvy > 0) {
-      _standingOn = null;
       final currentBottom = py + playerH;
       _Platform? landingPlatform;
       for (final plat in _platforms) {
         if (!plat.dissolving &&
-            previousBottom <= plat.y + 2 &&
-            currentBottom >= plat.y - 2 &&
+            previousBottom <= plat.y &&
+            currentBottom >= plat.y &&
             px + playerW - playerCollisionInset > plat.x &&
             px + playerCollisionInset < plat.x + plat.w) {
           if (landingPlatform == null || plat.y < landingPlatform.y) {
@@ -225,9 +215,8 @@ class TrepaNubes extends PositionComponent
       }
       if (landingPlatform != null) {
         final platform = landingPlatform;
-        py = platform.y - playerH;
+        py = platform.y - playerH - launchSeparation;
         pvy = jumpVel;
-        _standingOn = platform;
         if (platform.type == _PlatformType.dissolving) {
           platform.dissolving = true;
           platform.dissolveTimer = dissolveTime;
@@ -257,18 +246,14 @@ class TrepaNubes extends PositionComponent
       }
     }
 
-    _platforms.removeWhere((p) {
-      final remove =
+    _platforms.removeWhere(
+      (p) =>
           p.y > camY + size.y ||
           p.y + p.h < camY ||
           (p.type == _PlatformType.dissolving &&
               p.dissolving &&
-              p.dissolveTimer <= 0);
-      if (remove && identical(_standingOn, p)) {
-        _standingOn = null;
-      }
-      return remove;
-    });
+              p.dissolveTimer <= 0),
+    );
 
     for (final coin in _coins) {
       coin.phase += dt * 3;
@@ -289,7 +274,7 @@ class TrepaNubes extends PositionComponent
 
     if (py - camY > size.y + 50) {
       gameOver = true;
-      _earnedCoins = min(50, score ~/ 20);
+      _earnedCoins = min(20, score ~/ 10);
       CoinStore.instance.add(_earnedCoins);
     }
   }
@@ -303,7 +288,7 @@ class TrepaNubes extends PositionComponent
       final gradient = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
+        colors:[
           const Color(0xFF1a1a2e),
           const Color(0xFF16213e),
           const Color(0xFF0f3460),
@@ -345,7 +330,7 @@ class TrepaNubes extends PositionComponent
 
       final titleTp = TextPainter(
         text: TextSpan(
-          text: 'Trepa Nubes',
+          text: 'Salto Estelar',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 36,
