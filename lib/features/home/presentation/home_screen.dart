@@ -60,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onFoodTap: _handleFoodTap,
       onCleaningContactStarted: _beginCleaningContact,
       onCleaningContactStopped: widget.homeController.suspendCleaningContact,
-      onCleaningGestureEnded: widget.homeController.finishCleaningGesture,
+      onCleaningGestureEnded: widget.homeController.finishCleaningGestureForInteraction,
       isFoodToolSelected: () =>
           widget.homeController.selectedTool == CareTool.food,
       selectedFoodId: () => widget.homeController.selectedFoodId,
@@ -80,11 +80,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<FoodFeedResult> _handleFoodTap() {
+    _scene.invalidateActionFeedback();
     return widget.homeController.handleSelectedFoodTap();
   }
 
   bool _beginCleaningContact() {
     final result = widget.homeController.beginCleaningContact();
+    if (result.accepted) {
+      _scene.invalidateActionFeedback();
+    }
     _showNotice(result.notice);
     return result.accepted;
   }
@@ -133,6 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _requestPlay() async {
+    _scene.invalidateActionFeedback();
     final callback = widget.onPlayRequested;
     if (callback == null) {
       return;
@@ -147,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _requestStore([Future<void> Function()? requestedCallback]) async {
+    _scene.invalidateActionFeedback();
     final callback = requestedCallback ?? widget.onStoreRequested;
     if (callback == null) {
       return;
@@ -166,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _toggleRest() async {
+    _scene.invalidateActionFeedback();
     _closeFoodInventory();
     final notice = await widget.homeController.toggleResting();
     _showNotice(notice);

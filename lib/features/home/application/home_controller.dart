@@ -213,6 +213,21 @@ class HomeController extends ChangeNotifier {
     }
   }
 
+  /// Ruta de interacción del Home: cierra primero el estado lógico de limpieza
+  /// y deja el checkpoint en la cola durable. El feedback visual no debe
+  /// esperar al disco para responder al gesto del usuario.
+  Future<void> finishCleaningGestureForInteraction() async {
+    final shouldSave = _cleaningGestureHadContact;
+    _cleaningGestureHadContact = false;
+    if (isCleaning) {
+      await lifecycleCoordinator.stopCleaningForInteraction();
+      return;
+    }
+    if (shouldSave) {
+      unawaited(lifecycleCoordinator.saveCheckpoint());
+    }
+  }
+
   Future<bool> prepareForNavigation() async {
     if (!canNavigateFromHome) {
       return false;

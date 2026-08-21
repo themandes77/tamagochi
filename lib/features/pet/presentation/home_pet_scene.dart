@@ -53,6 +53,7 @@ class HomePetScene extends FlameGame {
   final RoomBackground roomBackground;
   late final _HomeCareInteractionLayer _careLayer;
   Future<void> _customizationTail = Future<void>.value();
+  PetActivity? _lastPetActivity;
 
   @override
   Color backgroundColor() => Colors.transparent;
@@ -77,21 +78,43 @@ class HomePetScene extends FlameGame {
       isCleaningToolSelected: isCleaningToolSelected,
       isCleaningActive: isCleaningActive,
       isFullyClean: isFullyClean,
+      petActivity: petActivity,
     );
     await add(_careLayer);
+    _lastPetActivity = petActivity();
 
     storeController.addListener(_onStoreChanged);
   }
 
   @override
   void update(double dt) {
+    final activity = petActivity();
+    final previousActivity = _lastPetActivity;
+    if (previousActivity != activity) {
+      _lastPetActivity = activity;
+      // Una acción nueva invalida cualquier feedback tardío de la anterior.
+      // Idle por sí solo no cancela: permite que la respuesta inmediata de
+      // Limpiar aparezca al terminar el gesto.
+      if (activity != PetActivity.idle) {
+        invalidateActionFeedback();
+      }
+    }
+
     nti.setCareVisualState(
       NtiCareVisualResolver.resolve(
         state: petState(),
-        activity: petActivity(),
+        activity: activity,
       ),
     );
     super.update(dt);
+  }
+
+  void invalidateActionFeedback() {
+    if (!isLoaded) {
+      return;
+    }
+    _careLayer.invalidatePendingFeedback();
+    nti.cancelSpeech();
   }
 
   @override
@@ -144,6 +167,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     required this.isCleaningToolSelected,
     required this.isCleaningActive,
     required this.isFullyClean,
+    required this.petActivity,
   }) : super(priority: 100);
 
   final Nti nti;
@@ -156,6 +180,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   final bool Function() isCleaningToolSelected;
   final bool Function() isCleaningActive;
   final bool Function() isFullyClean;
+  final PetActivity Function() petActivity;
 
   Sprite? _soapSprite;
   final Map<String, Sprite> _foodSprites = <String, Sprite>{};
@@ -166,6 +191,11 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   bool _dragGestureActive = false;
   int? _activePointerId;
   bool _contactAccepted = false;
+  int _feedbackRevision = 0;
+
+  void invalidatePendingFeedback() {
+    _feedbackRevision++;
+  }
 
   @override
   Future<void> onLoad() async {
@@ -421,10 +451,23 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   }
 
   Future<void> _finishCleaningAndReact() async {
+    final revision = ++_feedbackRevision;
+
+    // Esta ruta devuelve cuando el estado lógico terminó; el checkpoint puede
+    // seguir materializándose detrás. El mensaje ya no espera al disco.
     await onCleaningGestureEnded();
-    if (isFullyClean()) {
-      nti.react();
-      nti.say('¡Gracias! Me siento limpio.');
+    if (!isFullyClean()) {
+      return;
     }
+
+    nti.react();
+    await Future<void>.delayed(const Duration(milliseconds: 480));
+
+    if (revision != _feedbackRevision ||
+        petActivity() != PetActivity.idle ||
+        !isFullyClean()) {
+      return;
+    }
+    nti.say('¡Gracias! Me siento limpio.');
   }
 }

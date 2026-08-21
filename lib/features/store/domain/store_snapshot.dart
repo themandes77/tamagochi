@@ -39,7 +39,7 @@ class StoreSnapshot {
     'food_3',
   };
 
-  factory StoreSnapshot.initial({int coins = 500}) {
+  factory StoreSnapshot.initial({int coins = 250}) {
     return StoreSnapshot(
       coins: coins,
       ownedItemIds: const {'outfit_original', 'theme_original'},

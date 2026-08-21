@@ -55,7 +55,7 @@ class StorePreviewApp extends StatelessWidget {
       builder: (context, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Tienda NT Tamagochi',
+          title: 'Tienda My NTI',
           theme: storeThemeFrom(controller.selectedTheme),
           home: StoreScreen(controller: controller),
         );
@@ -173,163 +173,182 @@ class _StoreScreenState extends State<StoreScreen> {
         headerLayout.height + MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: _StoreHeader(
-        coins: controller.coins,
-        onBack: _handleBack,
-        layout: headerLayout,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final layout = _StoreLayoutSpec.fromWidth(constraints.maxWidth);
-          final catalogGridWidth = math.max(
-            0.0,
-            math.min(constraints.maxWidth, _StoreLayoutSpec.maxContentWidth) -
-                layout.panelPadding * 2,
-          );
-          final itemWidth =
-              (catalogGridWidth -
-                  layout.cardSpacing * (layout.columnCount - 1)) /
-              layout.columnCount;
-          final compactCard = itemWidth < 150;
+      body: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final layout = _StoreLayoutSpec.fromWidth(constraints.maxWidth);
+              final catalogGridWidth = math.max(
+                0.0,
+                math.min(
+                      constraints.maxWidth,
+                      _StoreLayoutSpec.maxContentWidth,
+                    ) -
+                    layout.panelPadding * 2,
+              );
+              final itemWidth =
+                  (catalogGridWidth -
+                      layout.cardSpacing * (layout.columnCount - 1)) /
+                  layout.columnCount;
+              final compactCard = itemWidth < 150;
 
-          return CustomScrollView(
-            key: const ValueKey('store_page'),
-            slivers: [
-              SliverToBoxAdapter(
-                child: LayoutBuilder(
-                  builder: (context, showcaseConstraints) {
-                    final tabsWidth = math.max(
-                      0.0,
-                      math.min(
-                            showcaseConstraints.maxWidth,
-                            _StoreLayoutSpec.maxContentWidth,
-                          ) -
-                          layout.catalogInset * 2,
-                    );
-                    final tabsLayoutHeight =
-                        StoreCategoryTabs.layoutHeightForWidth(tabsWidth);
+              return CustomScrollView(
+                key: const ValueKey('store_page'),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: LayoutBuilder(
+                      builder: (context, showcaseConstraints) {
+                        final tabsWidth = math.max(
+                          0.0,
+                          math.min(
+                                showcaseConstraints.maxWidth,
+                                _StoreLayoutSpec.maxContentWidth,
+                              ) -
+                              layout.catalogInset * 2,
+                        );
+                        final tabsLayoutHeight =
+                            StoreCategoryTabs.layoutHeightForWidth(tabsWidth);
 
-                    return Padding(
-                      key: const ValueKey('store_showcase_header_layer'),
-                      padding: EdgeInsets.only(
-                        top: math.max(
-                          0,
-                          headerObstructionHeight - _headerRoomUnderlap,
-                        ),
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          _CustomizationPreview(
-                            outfit: previewOutfit,
-                            theme: previewTheme,
-                            useStoreRoom: usesStoreRoom,
-                            bottomReservedHeight: tabsLayoutHeight,
-                            message: previewItem == null
-                                ? '¡Elige un estilo!'
-                                : '¡${previewItem.name} me queda genial!',
+                        return Padding(
+                          key: const ValueKey('store_showcase_header_layer'),
+                          padding: EdgeInsets.only(
+                            top: math.max(
+                              0,
+                              headerObstructionHeight - _headerRoomUnderlap,
+                            ),
                           ),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: _StoreLayoutSpec.maxContentWidth,
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: layout.catalogInset,
-                                  ),
-                                  child: StoreCategoryTabs(
-                                    selectedKind: _selectedKind,
-                                    onSelected: (kind) {
-                                      setState(() {
-                                        _selectedKind = kind;
-                                        _previewItemId = null;
-                                      });
-                                    },
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              _CustomizationPreview(
+                                outfit: previewOutfit,
+                                theme: previewTheme,
+                                useStoreRoom: usesStoreRoom,
+                                bottomReservedHeight: tabsLayoutHeight,
+                                message: previewItem == null
+                                    ? '¡Elige un estilo!'
+                                    : '¡${previewItem.name} me queda genial!',
+                              ),
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: _StoreLayoutSpec.maxContentWidth,
+                                    ),
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: layout.catalogInset,
+                                      ),
+                                      child: StoreCategoryTabs(
+                                        selectedKind: _selectedKind,
+                                        onSelected: (kind) {
+                                          setState(() {
+                                            _selectedKind = kind;
+                                            _previewItemId = null;
+                                          });
+                                        },
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: StoreCatalogPanel(
-                  padding: EdgeInsets.fromLTRB(
-                    layout.panelPadding,
-                    layout.panelPadding,
-                    layout.panelPadding,
-                    math.max(16, layout.panelPadding - 2),
+                        );
+                      },
+                    ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (visibleItems.isEmpty)
-                        const _EmptyInventory()
-                      else
-                        Center(
-                          child: SizedBox(
-                            width: catalogGridWidth,
-                            child: Wrap(
-                              spacing: layout.cardSpacing,
-                              runSpacing: layout.cardSpacing,
-                              children: [
-                                for (final item in visibleItems)
-                                  SizedBox(
-                                    width: itemWidth,
-                                    height: layout.cardHeightFor(_selectedKind),
-                                    child: _StoreItemCard(
-                                      item: item,
-                                      controller: controller,
-                                      compact: compactCard,
-                                      previewSize: layout.previewSizeFor(
-                                        itemWidth,
-                                      ),
-                                      actionButtonWidth: layout
-                                          .actionButtonWidthFor(
-                                            itemWidth,
-                                            compact: compactCard,
-                                          ),
-                                      selected: item.id == _previewItemId,
-                                      onSelected: () {
-                                        setState(
-                                          () => _previewItemId = item.id,
-                                        );
-                                      },
-                                      onAction: () => _handleItemAction(item),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: StoreCatalogPanel(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.panelPadding,
+                        layout.panelPadding,
+                        layout.panelPadding,
+                        math.max(16, layout.panelPadding - 2),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const SizedBox(height: 10),
-                          StoreCatalogHint(
-                            selectedKind: _selectedKind,
-                            isStorePage: true,
+                          if (visibleItems.isEmpty)
+                            const _EmptyInventory()
+                          else
+                            Center(
+                              child: SizedBox(
+                                width: catalogGridWidth,
+                                child: Wrap(
+                                  spacing: layout.cardSpacing,
+                                  runSpacing: layout.cardSpacing,
+                                  children: [
+                                    for (final item in visibleItems)
+                                      SizedBox(
+                                        width: itemWidth,
+                                        height: layout.cardHeightFor(
+                                          _selectedKind,
+                                        ),
+                                        child: _StoreItemCard(
+                                          item: item,
+                                          controller: controller,
+                                          compact: compactCard,
+                                          previewSize: layout.previewSizeFor(
+                                            itemWidth,
+                                          ),
+                                          actionButtonWidth: layout
+                                              .actionButtonWidthFor(
+                                                itemWidth,
+                                                compact: compactCard,
+                                              ),
+                                          selected: item.id == _previewItemId,
+                                          onSelected: () {
+                                            setState(
+                                              () => _previewItemId = item.id,
+                                            );
+                                          },
+                                          onAction: () =>
+                                              _handleItemAction(item),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(height: 10),
+                              StoreCatalogHint(
+                                selectedKind: _selectedKind,
+                                isStorePage: true,
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              );
+            },
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              left: false,
+              right: false,
+              bottom: false,
+              child: _StoreHeader(
+                coins: controller.coins,
+                onBack: _handleBack,
+                layout: headerLayout,
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -457,7 +476,7 @@ class _StoreHeaderLayoutSpec {
   final double balanceHeight;
 }
 
-class _StoreHeader extends StatelessWidget implements PreferredSizeWidget {
+class _StoreHeader extends StatelessWidget {
   static const _storePanelAssetPath =
       'assets/images/ui/store_header_panel_v1.png';
   static const _storeTitleAssetPath = 'assets/images/ui/store_title_v1.png';
@@ -473,77 +492,74 @@ class _StoreHeader extends StatelessWidget implements PreferredSizeWidget {
   final _StoreHeaderLayoutSpec layout;
 
   @override
-  Size get preferredSize => Size.fromHeight(layout.height);
-
-  @override
   Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: layout.height,
-      automaticallyImplyLeading: false,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      titleSpacing: 0,
-      flexibleSpace: Image.asset(
-        _storePanelAssetPath,
-        key: const ValueKey('store_header_panel_asset'),
-        fit: BoxFit.fill,
-        filterQuality: FilterQuality.high,
-        excludeFromSemantics: true,
-      ),
-      title: Center(
-        child: SizedBox(
-          width: layout.contentWidth,
-          height: layout.height,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                key: const ValueKey('store_header_back_slot'),
-                left: layout.backInset,
-                top: (layout.height - layout.backSize) / 2,
-                width: layout.backSize,
-                height: layout.backSize,
-                child: StoreBackButton(
-                  key: const ValueKey('store_close_button'),
-                  tooltip: 'Cerrar tienda',
-                  size: layout.backSize,
-                  onPressed: onBack,
-                ),
-              ),
-              Positioned(
-                key: const ValueKey('store_header_title_slot'),
-                left: (layout.contentWidth - layout.titleWidth) / 2,
-                top: (layout.height - layout.titleHeight) / 2,
-                width: layout.titleWidth,
-                height: layout.titleHeight,
-                child: Semantics(
-                  label: 'TIENDA',
-                  image: true,
-                  child: Image.asset(
-                    _storeTitleAssetPath,
-                    key: const ValueKey('store_title_asset'),
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    excludeFromSemantics: true,
-                  ),
-                ),
-              ),
-              Positioned(
-                key: const ValueKey('store_header_balance_slot'),
-                right: layout.balanceInset,
-                top: (layout.height - layout.balanceHeight) / 2,
-                width: layout.balanceWidth,
-                height: layout.balanceHeight,
-                child: StoreCoinBalance(
-                  coins: coins,
-                  width: layout.balanceWidth,
-                  height: layout.balanceHeight,
-                ),
-              ),
-            ],
+    return SizedBox(
+      height: layout.height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            _storePanelAssetPath,
+            key: const ValueKey('store_header_panel_asset'),
+            fit: BoxFit.fill,
+            filterQuality: FilterQuality.high,
+            excludeFromSemantics: true,
           ),
-        ),
+          Center(
+            child: SizedBox(
+              width: layout.contentWidth,
+              height: layout.height,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    key: const ValueKey('store_header_back_slot'),
+                    left: layout.backInset,
+                    top: (layout.height - layout.backSize) / 2,
+                    width: layout.backSize,
+                    height: layout.backSize,
+                    child: StoreBackButton(
+                      key: const ValueKey('store_close_button'),
+                      tooltip: 'Cerrar tienda',
+                      size: layout.backSize,
+                      onPressed: onBack,
+                    ),
+                  ),
+                  Positioned(
+                    key: const ValueKey('store_header_title_slot'),
+                    left: (layout.contentWidth - layout.titleWidth) / 2,
+                    top: (layout.height - layout.titleHeight) / 2,
+                    width: layout.titleWidth,
+                    height: layout.titleHeight,
+                    child: Semantics(
+                      label: 'TIENDA',
+                      image: true,
+                      child: Image.asset(
+                        _storeTitleAssetPath,
+                        key: const ValueKey('store_title_asset'),
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        excludeFromSemantics: true,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    key: const ValueKey('store_header_balance_slot'),
+                    right: layout.balanceInset,
+                    top: (layout.height - layout.balanceHeight) / 2,
+                    width: layout.balanceWidth,
+                    height: layout.balanceHeight,
+                    child: StoreCoinBalance(
+                      coins: coins,
+                      width: layout.balanceWidth,
+                      height: layout.balanceHeight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

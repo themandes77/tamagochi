@@ -19,7 +19,7 @@ void main() {
     });
 
     test('starts with Original outfit and theme equipped', () {
-      expect(controller.coins, 500);
+      expect(controller.coins, 250);
       expect(controller.equippedOutfitId, 'original');
       expect(controller.equippedThemeId, 'original');
       expect(
@@ -28,12 +28,23 @@ void main() {
       );
     });
 
+    test('preserves the balance from an existing save', () async {
+      repository = InMemoryStoreRepository(
+        initialSnapshot: StoreSnapshot.initial(coins: 347),
+      );
+      controller = StoreController(repository: repository);
+      await controller.initialize();
+
+      expect(controller.coins, 347);
+      expect(CoinStore.instance.balance, 347);
+    });
+
     test('purchases an item using the shared CoinStore balance', () async {
       final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.success);
-      expect(controller.coins, 400);
-      expect(CoinStore.instance.balance, 400);
+      expect(controller.coins, 150);
+      expect(CoinStore.instance.balance, 150);
       expect(controller.ownedItemIds, contains('outfit_anniversary'));
     });
 
@@ -42,7 +53,7 @@ void main() {
       final result = await controller.purchase('outfit_anniversary');
 
       expect(result, PurchaseResult.alreadyOwned);
-      expect(controller.coins, 400);
+      expect(controller.coins, 150);
     });
 
     test('rejects a purchase without enough coins', () async {
@@ -75,7 +86,7 @@ void main() {
       final restored = StoreController(repository: repository);
       await restored.initialize();
 
-      expect(restored.coins, 400);
+      expect(restored.coins, 150);
       expect(restored.equippedOutfitId, 'anniversary');
       expect(restored.ownedItemIds, contains('outfit_anniversary'));
     });
@@ -87,14 +98,14 @@ void main() {
       final restored = StoreController(repository: repository);
       await restored.initialize();
 
-      expect(restored.coins, 507);
+      expect(restored.coins, 257);
     });
 
     test('adds rewards through the Store API to the same CoinStore', () async {
       await controller.addCoins(25);
 
-      expect(controller.coins, 525);
-      expect(CoinStore.instance.balance, 525);
+      expect(controller.coins, 275);
+      expect(CoinStore.instance.balance, 275);
     });
 
 
@@ -109,12 +120,12 @@ void main() {
       final result = await controller.buyFood('food_2');
 
       expect(result, FoodPurchaseResult.success);
-      expect(controller.coins, 497);
+      expect(controller.coins, 247);
       expect(controller.foodQuantity('food_2'), 1);
 
       final restored = StoreController(repository: repository);
       await restored.initialize();
-      expect(restored.coins, 497);
+      expect(restored.coins, 247);
       expect(restored.foodQuantity('food_2'), 1);
     });
 
@@ -123,7 +134,7 @@ void main() {
       await controller.buyFood('food_1');
       await controller.buyFood('food_1');
 
-      expect(controller.coins, 497);
+      expect(controller.coins, 247);
       expect(controller.foodQuantity('food_1'), 3);
     });
 

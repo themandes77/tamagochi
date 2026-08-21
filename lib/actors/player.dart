@@ -11,6 +11,8 @@ import 'package:flutter_application_1/gui.dart';
 enum PlayerState { idle, talking }
 
 class Nti extends PositionComponent with TapCallbacks {
+  static const double cleanReactionDuration = 0.78;
+
   Nti({
     this.hunger = 10,
     this.cleanliness = 10,
@@ -111,13 +113,21 @@ class Nti extends PositionComponent with TapCallbacks {
     _face.talkFor(duration);
   }
 
+  /// Cancela cualquier diálogo/reacción de habla que ya no pertenezca a la
+  /// acción actual. Esto evita que un feedback viejo aparezca encima de una
+  /// nueva acción (por ejemplo, Dormir después de Limpiar).
+  void cancelSpeech() {
+    _speechBubble.hide();
+    _face.stopTalking();
+  }
+
   /// Recibe únicamente la interpretación visual del estado durable/runtime.
   /// No altera Pet, no persiste nada y no crea una cola de estados anteriores.
   void setCareVisualState(NtiCareVisualState state) {
     final wasCleaning = _targetCareVisual.isCleaning;
     _targetCareVisual = state;
     if (!wasCleaning && state.isCleaning) {
-      _cleanReactionRemaining = 0.56;
+      _cleanReactionRemaining = cleanReactionDuration;
     }
   }
 
@@ -246,27 +256,35 @@ class Nti extends PositionComponent with TapCallbacks {
         : 0.0;
     final hungerPulse =
         ((math.sin(_idleTime * 3.25) + 1) / 2) * hunger * (1 - _sleepVisual);
-    final cleanProgress = (1 - (_cleanReactionRemaining / 0.56))
+    final cleanProgress = (1 - (_cleanReactionRemaining / cleanReactionDuration))
         .clamp(0.0, 1.0)
         .toDouble();
-    final cleanShakeEnvelope = _cleanReactionRemaining > 0
+    final cleanActive = _cleanReactionRemaining > 0;
+    // Limpieza "squishy": deformación visible pero redonda. El movimiento se
+    // desacopla del activity flag para que la reacción pueda terminar suave
+    // aunque Pet ya haya vuelto a idle al soltar el gesto.
+    final cleanEnvelope = cleanActive
         ? math.sin(cleanProgress * math.pi)
         : 0.0;
-    final cleanShake =
-        math.sin(_idleTime * 31) * cleanShakeEnvelope * _cleaningVisual;
+    final cleanScaleX = cleanActive ? _cleanScaleX(cleanProgress) : 1.0;
+    final cleanScaleY = cleanActive ? _cleanScaleY(cleanProgress) : 1.0;
+    final cleanAngle = cleanActive ? _cleanAngle(cleanProgress) : 0.0;
+    final cleanSway = cleanActive ? _cleanSway(cleanProgress) : 0.0;
+    final cleanPresentation = math.max(_cleaningVisual, cleanEnvelope);
 
     final restingPosition = _restingPosition;
     if (restingPosition != null) {
       final slump =
           (energy * 4.5 + hunger * 2.0 + distress * 7.0) * (1 - _sleepVisual);
       position = Vector2(
-        restingPosition.x + cleanShake * 5.0,
+        restingPosition.x + cleanSway,
         restingPosition.y +
             floatOffset +
             slump +
             _sleepVisual * 5.5 -
             _reactionVisual * 20 +
-            _eatVisual * 5,
+            _eatVisual * 5 -
+            cleanEnvelope * 2.0,
       );
     }
 
@@ -277,8 +295,12 @@ class Nti extends PositionComponent with TapCallbacks {
     final baseScale =
         _viewportScale * (1 + breath + _reactionVisual * 0.06);
     scale = Vector2(
-      baseScale * (1 + chew * 0.035 + postureSquash * 0.55),
-      baseScale * (1 - chew * 0.026 - postureSquash),
+      baseScale *
+          (1 + chew * 0.035 + postureSquash * 0.55) *
+          cleanScaleX,
+      baseScale *
+          (1 - chew * 0.026 - postureSquash) *
+          cleanScaleY,
     );
 
     final idleAngleAmplitude =
@@ -291,7 +313,7 @@ class Nti extends PositionComponent with TapCallbacks {
             _reactionVisual *
             0.025 +
         math.sin(eatProgress * math.pi * 4) * _eatVisual * 0.012 +
-        cleanShake * 0.014;
+        cleanAngle;
 
     if (isLoaded) {
       final liftDenominator = math.max(floatAmplitude * 2, 1.0);
@@ -305,11 +327,12 @@ class Nti extends PositionComponent with TapCallbacks {
         funIntensity: _funVisual,
         distressIntensity: _distressVisual,
         sleepingIntensity: _sleepVisual,
+        cleaningIntensity: cleanPresentation,
         actionSuppression: actionSuppression,
       );
       _careEffects.setCarePresentation(
         cleanlinessIntensity: _cleanlinessVisual,
-        cleaningIntensity: _cleaningVisual,
+        cleaningIntensity: cleanPresentation,
       );
     }
   }
@@ -326,6 +349,80 @@ class Nti extends PositionComponent with TapCallbacks {
 
   double _lerp(double from, double to, double amount) {
     return from + (to - from) * amount.clamp(0.0, 1.0).toDouble();
+  }
+
+  double _smoothStep(double value) {
+    final t = value.clamp(0.0, 1.0).toDouble();
+    return t * t * (3 - 2 * t);
+  }
+
+  double _cleanSegment(
+    double progress,
+    double start,
+    double end,
+    double from,
+    double to,
+  ) {
+    if (end <= start) {
+      return to;
+    }
+    final local = _smoothStep((progress - start) / (end - start));
+    return _lerp(from, to, local);
+  }
+
+  double _cleanScaleX(double progress) {
+    if (progress < 0.16) {
+      return _cleanSegment(progress, 0.00, 0.16, 1.00, 1.04);
+    }
+    if (progress < 0.38) {
+      return _cleanSegment(progress, 0.16, 0.38, 1.04, 0.97);
+    }
+    if (progress < 0.62) {
+      return _cleanSegment(progress, 0.38, 0.62, 0.97, 1.025);
+    }
+    return _cleanSegment(progress, 0.62, 1.00, 1.025, 1.00);
+  }
+
+  double _cleanScaleY(double progress) {
+    if (progress < 0.16) {
+      return _cleanSegment(progress, 0.00, 0.16, 1.00, 0.96);
+    }
+    if (progress < 0.38) {
+      return _cleanSegment(progress, 0.16, 0.38, 0.96, 1.03);
+    }
+    if (progress < 0.62) {
+      return _cleanSegment(progress, 0.38, 0.62, 1.03, 0.975);
+    }
+    return _cleanSegment(progress, 0.62, 1.00, 0.975, 1.00);
+  }
+
+  double _cleanAngle(double progress) {
+    const maxAngle = 1.5 * math.pi / 180;
+    if (progress < 0.16) {
+      return 0;
+    }
+    if (progress < 0.38) {
+      return _cleanSegment(progress, 0.16, 0.38, 0, maxAngle);
+    }
+    if (progress < 0.62) {
+      return _cleanSegment(progress, 0.38, 0.62, maxAngle, -maxAngle);
+    }
+    return _cleanSegment(progress, 0.62, 1.00, -maxAngle, 0);
+  }
+
+  double _cleanSway(double progress) {
+    // Muy poco desplazamiento físico: la sensación viene principalmente del
+    // squash/stretch, no de sacudir la posición de NTI.
+    if (progress < 0.16) {
+      return _cleanSegment(progress, 0.00, 0.16, 0, -1.4);
+    }
+    if (progress < 0.38) {
+      return _cleanSegment(progress, 0.16, 0.38, -1.4, 1.8);
+    }
+    if (progress < 0.62) {
+      return _cleanSegment(progress, 0.38, 0.62, 1.8, -1.2);
+    }
+    return _cleanSegment(progress, 0.62, 1.00, -1.2, 0);
   }
 
   @override
@@ -509,9 +606,28 @@ class _NtiSparkleParticle {
 }
 
 class NtiFace extends PositionComponent {
-  NtiFace({required super.size, required this.outfit});
+  static const double minimumAwakeEyeOpenFraction = 0.82;
+
+  static double awakeEyeOpenFractionFor(double energyIntensity) {
+    final normalized = energyIntensity.clamp(0.0, 1.0).toDouble();
+    return 1 - normalized * (1 - minimumAwakeEyeOpenFraction);
+  }
+
+  NtiFace({
+    required super.size,
+    required this.outfit,
+    this.eyeScale = 1.0,
+    this.eyeCenterYOffset = 0.0,
+    this.mouthCenterYOffset = 0.0,
+  });
 
   NtiOutfit outfit;
+
+  /// Ajustes ópticos opcionales para renders muy pequeños (minijuegos).
+  /// Los defaults preservan exactamente la cara canónica de Home.
+  final double eyeScale;
+  final double eyeCenterYOffset;
+  final double mouthCenterYOffset;
   double _elapsed = 0;
   double _talkRemaining = 0;
   double _eatRemaining = 0;
@@ -521,6 +637,7 @@ class NtiFace extends PositionComponent {
   double _funIntensity = 0;
   double _distressIntensity = 0;
   double _sleepingIntensity = 0;
+  double _cleaningIntensity = 0;
   double _actionSuppression = 0;
 
   bool get isTalking => _talkRemaining > 0;
@@ -528,6 +645,10 @@ class NtiFace extends PositionComponent {
 
   void talkFor(double duration) {
     _talkRemaining = duration;
+  }
+
+  void stopTalking() {
+    _talkRemaining = 0;
   }
 
   void eatFor(double duration) {
@@ -541,6 +662,7 @@ class NtiFace extends PositionComponent {
     required double funIntensity,
     required double distressIntensity,
     required double sleepingIntensity,
+    required double cleaningIntensity,
     required double actionSuppression,
   }) {
     _hungerIntensity = hungerIntensity;
@@ -549,6 +671,7 @@ class NtiFace extends PositionComponent {
     _funIntensity = funIntensity;
     _distressIntensity = distressIntensity;
     _sleepingIntensity = sleepingIntensity;
+    _cleaningIntensity = cleaningIntensity;
     _actionSuppression = actionSuppression;
   }
 
@@ -577,16 +700,15 @@ class NtiFace extends PositionComponent {
     final isBlinking = blinkCycle > 3.92 && blinkCycle < 4.12;
     final gazeX =
         math.sin(_elapsed * 0.85) * size.x * 0.009 * (1 - energy * 0.65);
-    final gazeDrop = size.y * (fun * 0.006 + distress * 0.010);
-    final eyeY = size.y * outfit.eyeCenterY + gazeDrop;
-    final eyeWidth = size.x * 0.075;
+    // Los ojos despiertos sólo comunican cansancio mediante apertura.
+    // Hambre, limpieza, diversión y multicrítico usan sus propios canales.
+    // A energía 0 la apertura conserva al menos 82% del ojo canónico.
+    final gazeDrop = size.y * (fun * 0.006 + distress * 0.020);
+    final eyeY =
+        size.y * (outfit.eyeCenterY + eyeCenterYOffset) + gazeDrop;
+    final eyeWidth = size.x * 0.075 * eyeScale;
     final awakeEyeHeight =
-        size.y *
-        0.115 *
-        (1 -
-            (energy * 0.52 + distress * 0.22 + cleanliness * 0.06)
-                .clamp(0.0, 0.72)
-                .toDouble());
+        size.y * 0.115 * eyeScale * awakeEyeOpenFractionFor(energy);
     final eyeHeight = isBlinking
         ? size.y * 0.012
         : _lerp(awakeEyeHeight, size.y * 0.012, _sleepingIntensity);
@@ -622,6 +744,7 @@ class NtiFace extends PositionComponent {
       cleanliness: cleanliness,
       fun: fun,
       distress: distress,
+      cleaning: _cleaningIntensity,
       sleeping: _sleepingIntensity,
     );
   }
@@ -686,8 +809,8 @@ class NtiFace extends PositionComponent {
         ).createShader(eyeRect),
     );
 
-    final highlightAlpha = (0.72 * (1 - tired * 0.40 - distress * 0.26))
-        .clamp(0.30, 0.72)
+    final highlightAlpha = (0.72 * (1 - tired * 0.18 - distress * 0.18))
+        .clamp(0.46, 0.72)
         .toDouble();
     canvas.drawCircle(
       Offset(center.dx - width * 0.18 + gazeX, center.dy - height * 0.23),
@@ -695,40 +818,21 @@ class NtiFace extends PositionComponent {
       Paint()..color = Colors.white.withValues(alpha: highlightAlpha),
     );
 
-    final lidWeight = (tired * 0.72 + distress * 0.30)
-        .clamp(0.0, 0.86)
-        .toDouble();
-    if (lidWeight > 0.02) {
-      final lidRect = Rect.fromLTWH(
-        eyeRect.left - 1,
-        eyeRect.top - 1,
-        eyeRect.width + 2,
-        eyeRect.height * lidWeight,
-      );
-      canvas.drawArc(
-        lidRect,
-        math.pi,
-        math.pi,
-        false,
-        Paint()
-          ..color = const Color(0xFF211A2B).withValues(alpha: 0.72 * lidWeight)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.4
-          ..strokeCap = StrokeCap.round,
-      );
-    }
+    // Sin falso párpado despierto: NTI no tiene párpados dibujados.
+    // Parpadear y dormir siguen siendo los únicos cierres completos.
 
     if (distress > 0.18) {
-      final browY = eyeRect.top - size.y * 0.022;
+      final browY = eyeRect.top - size.y * 0.024;
       final inward = mirror ? -1.0 : 1.0;
+      final tilt = size.y * 0.010 * distress;
       final path = Path()
-        ..moveTo(center.dx - width * 0.38, browY + inward * distress * 2)
-        ..lineTo(center.dx + width * 0.38, browY - inward * distress * 2);
+        ..moveTo(center.dx - width * 0.36, browY + inward * tilt)
+        ..lineTo(center.dx + width * 0.36, browY - inward * tilt);
       canvas.drawPath(
         path,
         Paint()
-          ..color = const Color(0xFF34263D).withValues(alpha: distress * 0.72)
-          ..strokeWidth = 3.2
+          ..color = const Color(0xFF34263D).withValues(alpha: distress * 0.58)
+          ..strokeWidth = 2.8
           ..strokeCap = StrokeCap.round
           ..style = PaintingStyle.stroke,
       );
@@ -741,9 +845,13 @@ class NtiFace extends PositionComponent {
     required double cleanliness,
     required double fun,
     required double distress,
+    required double cleaning,
     required double sleeping,
   }) {
-    final center = Offset(size.x * 0.5, size.y * outfit.mouthCenterY);
+    final center = Offset(
+      size.x * 0.5,
+      size.y * (outfit.mouthCenterY + mouthCenterYOffset),
+    );
 
     if (sleeping > 0.62) {
       final sleepPath = Path()
@@ -811,6 +919,27 @@ class NtiFace extends PositionComponent {
             ..style = PaintingStyle.fill,
         );
       }
+      return;
+    }
+
+    if (cleaning > 0.08) {
+      final comfort = cleaning.clamp(0.0, 1.0).toDouble();
+      final smile = Path()
+        ..moveTo(center.dx - size.x * 0.060, center.dy - size.y * 0.002)
+        ..quadraticBezierTo(
+          center.dx,
+          center.dy + size.y * (0.048 + comfort * 0.010),
+          center.dx + size.x * 0.060,
+          center.dy - size.y * 0.002,
+        );
+      canvas.drawPath(
+        smile,
+        Paint()
+          ..color = const Color(0xFF17111D)
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 6,
+      );
       return;
     }
 
@@ -1029,6 +1158,12 @@ class NtiSpeechBubble extends PositionComponent {
     if (wasHidden) {
       _appearanceElapsed = 0;
     }
+  }
+
+  void hide() {
+    _remaining = 0;
+    _message = '';
+    _appearanceElapsed = 0;
   }
 
   @override

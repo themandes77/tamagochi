@@ -13,9 +13,25 @@ import 'package:flutter_application_1/features/customization/domain/nti_outfit.d
 /// perteneciendo por completo al minijuego anfitrión.
 class NtiMinigameAvatar {
   NtiMinigameAvatar({required this.outfit})
-    : _face = NtiFace(size: Vector2.all(_referenceExtent), outfit: outfit);
+    : _face = NtiFace(
+        size: Vector2.all(_referenceExtent),
+        outfit: outfit,
+        // A escalas de 50–70 px los rasgos del Home pierden peso óptico por
+        // rasterización. Estos ajustes son exclusivos del avatar de minijuego:
+        // Home conserva exactamente su renderer canónico.
+        eyeScale: 1.08,
+        eyeCenterYOffset: 0.010,
+        mouthCenterYOffset: 0.022,
+      );
 
   static const double _referenceExtent = 360;
+
+  // Las hitboxes de Marco son rectangulares (Salto 60×75, Recolección 54×68).
+  // El primer fix encajaba un cuadrado usando sólo el ancho (60×60 / 54×54),
+  // corrigiendo el 'huevo' pero haciendo a NTI demasiado pequeño. Recuperamos
+  // presencia visual con +14% de ancho, sin superar la altura de la hitbox.
+  // Resultado de referencia: ~68×68 / ~61×61. La hitbox NO cambia.
+  static const double _visualWidthScale = 1.14;
 
   final NtiOutfit outfit;
   final NtiFace _face;
@@ -48,17 +64,27 @@ class NtiMinigameAvatar {
     final breath = math.sin(_elapsed * math.pi) * 0.008;
     final tilt = math.sin(_elapsed * 0.8) * 0.007;
     final visualScale = 1 + breath;
-    final scaleX = (size.x / _referenceExtent) * visualScale;
-    final scaleY = (size.y / _referenceExtent) * visualScale;
+
+    // La caja lógica de Marco es rectangular (por ejemplo 60x75), pero el
+    // artwork de NTI y NtiFace es cuadrado. Escalar X/Y por separado lo
+    // deformaba visualmente en un óvalo. Renderizamos siempre 1:1 y permitimos
+    // que el dibujo sobresalga sólo unos pocos píxeles a izquierda/derecha
+    // para conservar la presencia óptica de Home. La física/hitbox no cambia.
+    final visualExtent = math.min(size.x * _visualWidthScale, size.y);
+    final uniformScale =
+        (visualExtent / _referenceExtent) * visualScale;
+
+    // Alineamos el cuadrado visual con la base de la caja lógica para que la
+    // corrección de aspect ratio no haga flotar a NTI sobre las plataformas.
     final center = Offset(
       position.x + size.x / 2,
-      position.y + visualOffsetY + size.y / 2,
+      position.y + visualOffsetY + size.y - visualExtent / 2,
     );
 
     canvas.save();
     canvas.translate(center.dx, center.dy);
     canvas.rotate(tilt);
-    canvas.scale(scaleX, scaleY);
+    canvas.scale(uniformScale, uniformScale);
     canvas.translate(-_referenceExtent / 2, -_referenceExtent / 2);
 
     body.render(

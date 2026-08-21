@@ -22,7 +22,7 @@ class StoreController extends ChangeNotifier {
     this.outfits = NtiOutfit.values,
     this.themes = defaultThemeOptions,
     this.foodCatalog = defaultFoodCatalog,
-    int initialCoins = 500,
+    int initialCoins = 250,
   }) : _state = StoreSnapshot.initial(coins: initialCoins);
 
   final StoreRepository repository;

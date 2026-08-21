@@ -115,6 +115,20 @@ class PetLifecycleCoordinator {
     return result;
   }
 
+  /// Finaliza la limpieza para feedback interactivo sin hacer esperar a la UI
+  /// por la escritura física. El estado lógico queda cerrado primero y el
+  /// checkpoint conserva exactamente la misma cola durable en segundo plano.
+  Future<CareActionResult> stopCleaningForInteraction() async {
+    _requireInitialized();
+    await _waitForExclusiveMutation();
+    _syncToWallClock();
+    final result = controller.stopCleaning();
+    if (result == CareActionResult.interrupted) {
+      unawaited(_enqueueSave());
+    }
+    return result;
+  }
+
   CareActionResult startResting() {
     _requireInitialized();
     return controller.startResting();

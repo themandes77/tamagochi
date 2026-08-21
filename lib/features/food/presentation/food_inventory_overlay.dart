@@ -234,26 +234,49 @@ class _FoodInventoryTile extends StatelessWidget {
             ),
             child: LayoutBuilder(
               builder: (context, constraints) {
+                // La cantidad tiene su propia franja vertical para que x0/x9/x99
+                // nunca compitan con el arte en teléfonos físicamente pequeños.
+                // El arte usa únicamente el espacio restante y conserva su escala.
+                const quantitySlotHeight = 20.0;
+                const artQuantityGap = 2.0;
+                final availableArtHeight = math.max(
+                  0.0,
+                  constraints.maxHeight - quantitySlotHeight - artQuantityGap,
+                );
                 final artSize = math
-                    .min(constraints.maxWidth * 0.68, constraints.maxHeight * 0.62)
-                    .clamp(28.0, 62.0)
+                    .min(constraints.maxWidth * 0.68, availableArtHeight)
+                    .clamp(0.0, 62.0)
                     .toDouble();
+
                 return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    Opacity(
-                      opacity: enabled ? 1 : 0.48,
-                      child: FoodArtwork(food: food, size: artSize),
+                    Expanded(
+                      child: Center(
+                        child: Opacity(
+                          opacity: enabled ? 1 : 0.48,
+                          child: FoodArtwork(food: food, size: artSize),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'x$quantity',
-                      style: TextStyle(
-                        color: enabled
-                            ? const Color(0xFF3A2252)
-                            : const Color(0x883A2252),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                    const SizedBox(height: artQuantityGap),
+                    SizedBox(
+                      height: quantitySlotHeight,
+                      width: double.infinity,
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'x$quantity',
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: enabled
+                                  ? const Color(0xFF3A2252)
+                                  : const Color(0x883A2252),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
