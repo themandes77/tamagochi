@@ -54,9 +54,9 @@ class MinigameSelector extends PositionComponent
   }
 
   @override
-  void onGameResize(Vector2 canvasSize) {
-    super.onGameResize(canvasSize);
-    size = canvasSize;
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    this.size = size;
     _scrollOffset = _scrollOffset.clamp(0.0, _maxScrollOffset);
   }
 
@@ -97,12 +97,8 @@ class MinigameSelector extends PositionComponent
 
   double get _contentTop => _topInset + _headerHeight + _contentTopGap;
 
-  Rect get _contentViewport => Rect.fromLTWH(
-        0,
-        _contentTop,
-        size.x,
-        max(0.0, size.y - _contentTop),
-      );
+  Rect get _contentViewport =>
+      Rect.fromLTWH(0, _contentTop, size.x, max(0.0, size.y - _contentTop));
 
   Rect get _backRect {
     final control = _controlSize;
@@ -126,34 +122,24 @@ class MinigameSelector extends PositionComponent
   }
 
   Rect get _saltoCardRect => Rect.fromLTWH(
-        (size.x - _cardWidth) / 2,
-        _contentTop,
-        _cardWidth,
-        _cardHeight,
-      );
+    (size.x - _cardWidth) / 2,
+    _contentTop,
+    _cardWidth,
+    _cardHeight,
+  );
 
   Rect get _saltoContentRect {
     final width = min(size.x * 0.9, 360.0);
     final height = width * 1024 / 1536;
-    return Rect.fromLTWH(
-      (size.x - width) / 2,
-      _contentTop,
-      width,
-      height,
-    );
+    return Rect.fromLTWH((size.x - width) / 2, _contentTop, width, height);
   }
 
-  Rect get _recoleccionCardRect => _saltoCardRect.translate(
-        0,
-        _cardHeight + _cardSpacing * _cardScale,
-      );
+  Rect get _recoleccionCardRect =>
+      _saltoCardRect.translate(0, _cardHeight + _cardSpacing * _cardScale);
 
   Rect get _recoleccionContentRect {
     final content = _saltoContentRect;
-    return content.translate(
-      0,
-      content.height + _cardSpacing * _cardScale,
-    );
+    return content.translate(0, content.height + _cardSpacing * _cardScale);
   }
 
   Rect get _upcomingCardRect {
@@ -171,22 +157,18 @@ class MinigameSelector extends PositionComponent
   double get _naturalContentBottom =>
       _upcomingCardRect.bottom + _contentBottomGap * _cardScale;
 
-  double get _maxScrollOffset => max(
-        0.0,
-        _naturalContentBottom - _contentViewport.bottom,
-      );
+  double get _maxScrollOffset =>
+      max(0.0, _naturalContentBottom - _contentViewport.bottom);
 
-  Rect _visibleRect(Rect naturalRect) => naturalRect.translate(0, -_scrollOffset);
+  Rect _visibleRect(Rect naturalRect) =>
+      naturalRect.translate(0, -_scrollOffset);
 
   // El arte dedica aproximadamente el 56% izquierdo a ilustración y el resto
   // a información. Un eje al 75% centra título, recompensa y JUGAR dentro de
   // esa zona sin empujarlos contra el borde derecho.
   double _infoCenterX(Rect card) => card.left + card.width * 0.75;
 
-  Rect _playRectFor(
-    Rect card, {
-    required double bottomInset,
-  }) {
+  Rect _playRectFor(Rect card, {required double bottomInset}) {
     final scale = _cardScale;
     final width = 120 * scale;
     final height = width * 375 / 666;
@@ -205,10 +187,7 @@ class MinigameSelector extends PositionComponent
     final width = 90 * scale;
     final height = width * 375 / 666;
     return Rect.fromCenter(
-      center: Offset(
-        _infoCenterX(card),
-        play.top - height / 2 + 25 * scale,
-      ),
+      center: Offset(_infoCenterX(card), play.top - height / 2 + 25 * scale),
       width: width,
       height: height,
     );
@@ -217,8 +196,7 @@ class MinigameSelector extends PositionComponent
   // Salto Estelar tiene el título en dos líneas; subimos ligeramente el
   // bloque de acciones para equilibrar el espacio vertical de su zona de info.
   // Recolección conserva su posición aprobada.
-  Rect get _saltoPlayRect =>
-      _playRectFor(_saltoContentRect, bottomInset: 35);
+  Rect get _saltoPlayRect => _playRectFor(_saltoContentRect, bottomInset: 35);
   Rect get _saltoRewardRect =>
       _rewardRectFor(_saltoContentRect, _saltoPlayRect);
 
@@ -319,10 +297,7 @@ class MinigameSelector extends PositionComponent
     )..layout(maxWidth: 150 * scale);
     title.paint(
       canvas,
-      Offset(
-        _infoCenterX(content) - title.width / 2,
-        content.top + 60 * scale,
-      ),
+      Offset(_infoCenterX(content) - title.width / 2, content.top + 60 * scale),
     );
 
     final reward = _saltoRewardRect;
@@ -368,10 +343,7 @@ class MinigameSelector extends PositionComponent
     )..layout(maxWidth: 150 * scale);
     title.paint(
       canvas,
-      Offset(
-        _infoCenterX(content) - title.width / 2,
-        content.top + 90 * scale,
-      ),
+      Offset(_infoCenterX(content) - title.width / 2, content.top + 90 * scale),
     );
 
     final play = _recoleccionPlayRect;
@@ -428,8 +400,8 @@ class MinigameSelector extends PositionComponent
   bool onDragStart(DragStartEvent event) {
     super.onDragStart(event);
     final canScroll = _maxScrollOffset > 0;
-    _draggingContent = canScroll &&
-        _contentViewport.contains(event.localPosition.toOffset());
+    _draggingContent =
+        canScroll && _contentViewport.contains(event.localPosition.toOffset());
     return _draggingContent;
   }
 

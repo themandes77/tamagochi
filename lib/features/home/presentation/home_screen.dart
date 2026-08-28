@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/app/settings/app_preferences_controller.dart';
 import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
@@ -64,7 +65,8 @@ class _HomeScreenState extends State<HomeScreen> {
       onFoodTap: _handleFoodTap,
       onCleaningContactStarted: _beginCleaningContact,
       onCleaningContactStopped: widget.homeController.suspendCleaningContact,
-      onCleaningGestureEnded: widget.homeController.finishCleaningGestureForInteraction,
+      onCleaningGestureEnded:
+          widget.homeController.finishCleaningGestureForInteraction,
       onCareCompleted: _onCareCompleted,
       isFoodToolSelected: () =>
           widget.homeController.selectedTool == CareTool.food,
@@ -155,9 +157,8 @@ class _HomeScreenState extends State<HomeScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (_) => FoodPurchaseDialog(
-        storeController: widget.storeController,
-      ),
+      builder: (_) =>
+          FoodPurchaseDialog(storeController: widget.storeController),
     );
   }
 
@@ -176,7 +177,9 @@ class _HomeScreenState extends State<HomeScreen> {
     await callback();
   }
 
-  Future<void> _requestStore([Future<void> Function()? requestedCallback]) async {
+  Future<void> _requestStore([
+    Future<void> Function()? requestedCallback,
+  ]) async {
     _scene.invalidateActionFeedback();
     final callback = requestedCallback ?? widget.onStoreRequested;
     if (callback == null) {
@@ -309,9 +312,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 final needHeight = (constraints.maxHeight * 0.078 * widthFactor)
                     .clamp(46.0, 60.0)
                     .toDouble();
-                final actionHeight = (constraints.maxHeight * 0.15 * widthFactor)
-                    .clamp(92.0, 126.0)
-                    .toDouble();
+                final actionHeight =
+                    (constraints.maxHeight * 0.15 * widthFactor)
+                        .clamp(92.0, 126.0)
+                        .toDouble();
 
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
@@ -415,7 +419,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       return FadeTransition(
                         opacity: animation,
                         child: ScaleTransition(
-                          scale: Tween<double>(begin: 0.88, end: 1).animate(curved),
+                          scale: Tween<double>(
+                            begin: 0.88,
+                            end: 1,
+                          ).animate(curved),
                           child: child,
                         ),
                       );
@@ -477,9 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final state = widget.homeController.petState;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final gap = (constraints.maxWidth * 0.011)
-            .clamp(2.5, 4.5)
-            .toDouble();
+        final gap = (constraints.maxWidth * 0.011).clamp(2.5, 4.5).toDouble();
 
         return Row(
           children: <Widget>[
@@ -528,9 +533,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controller = widget.homeController;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final gap = (constraints.maxWidth * 0.018)
-            .clamp(4.0, 8.0)
-            .toDouble();
+        final gap = (constraints.maxWidth * 0.018).clamp(4.0, 8.0).toDouble();
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -6,15 +6,15 @@ import 'package:flutter_application_1/features/store/domain/store_snapshot.dart'
 
 class StoreStoragePolicy implements JsonStoragePolicy {
   StoreStoragePolicy({JsonMigrationRegistry? migrations})
-      : migrations =
-            migrations ??
-            JsonMigrationRegistry(
-              currentVersion: 3,
-              steps: <int, JsonMigrationStep>{
-                1: _migrateV1ToV2,
-                2: _migrateV2ToV3,
-              },
-            );
+    : migrations =
+          migrations ??
+          JsonMigrationRegistry(
+            currentVersion: 3,
+            steps: <int, JsonMigrationStep>{
+              1: _migrateV1ToV2,
+              2: _migrateV2ToV3,
+            },
+          );
 
   final JsonMigrationRegistry migrations;
 
@@ -54,15 +54,15 @@ class StoreStoragePolicy implements JsonStoragePolicy {
       );
     }
 
-
-
     final foodInventory = payload['foodInventory'];
     if (foodInventory is! Map ||
-        foodInventory.entries.any((entry) =>
-            entry.key is! String ||
-            (entry.key as String).isEmpty ||
-            entry.value is! int ||
-            (entry.value as int) < 0)) {
+        foodInventory.entries.any(
+          (entry) =>
+              entry.key is! String ||
+              (entry.key as String).isEmpty ||
+              entry.value is! int ||
+              (entry.value as int) < 0,
+        )) {
       throw const FormatException(
         'foodInventory debe ser un mapa de cantidades no negativas.',
       );
@@ -131,7 +131,6 @@ class StoreStoragePolicy implements JsonStoragePolicy {
       return null;
     }
 
-
     Map<String, int>? findFoodInventory() {
       for (final candidate in ordered) {
         final value = candidate.payload?['foodInventory'];
@@ -189,29 +188,24 @@ class StoreStoragePolicy implements JsonStoragePolicy {
     final candidate = <String, Object?>{
       'coins': coins ?? initial.coins,
       'ownedItemIds': (ownedItems ?? initial.ownedItemIds).toList(),
-      if (equippedOutfitId != null) 'equippedOutfitId': equippedOutfitId,
+      'equippedOutfitId': ?equippedOutfitId,
       if (equippedOutfitId == null && equippedSkinId != null)
         'equippedSkinId': equippedSkinId,
-      if (equippedThemeId != null) 'equippedThemeId': equippedThemeId,
+      'equippedThemeId': ?equippedThemeId,
       'foodInventory': foodInventory ?? initial.foodInventory,
     };
 
     return StoreSnapshot.fromJson(candidate).toJson();
   }
 
-  static Map<String, Object?> _migrateV1ToV2(
-    Map<String, Object?> payload,
-  ) {
+  static Map<String, Object?> _migrateV1ToV2(Map<String, Object?> payload) {
     // `fromJson` distingue el Store legacy (equippedSkinId) de una posible
     // versión 1 ya integrada con outfits. Así la migración es segura para ambos
     // estados de desarrollo y siempre produce el esquema canónico v2.
     return StoreSnapshot.fromJson(payload).toJson();
   }
 
-
-  static Map<String, Object?> _migrateV2ToV3(
-    Map<String, Object?> payload,
-  ) {
+  static Map<String, Object?> _migrateV2ToV3(Map<String, Object?> payload) {
     // Schema 3 incorpora inventario apilable de comida. No hay regalo inicial:
     // tanto saves existentes como nuevas partidas empiezan con cantidades 0 si
     // el payload anterior no tenía inventario de comida.

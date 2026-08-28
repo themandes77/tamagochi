@@ -40,25 +40,28 @@ void main() {
     expect(find.text('Original'), findsWidgets);
   });
 
-  testWidgets('store header stays anchored to the top safe area on tall screens', (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(360, 640);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'store header stays anchored to the top safe area on tall screens',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 640);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final controller = StoreController(repository: InMemoryStoreRepository());
-    await controller.initialize();
-    await tester.pumpWidget(StorePreviewApp(controller: controller));
-    await tester.pumpAndSettle();
+      final controller = StoreController(repository: InMemoryStoreRepository());
+      await controller.initialize();
+      await tester.pumpWidget(StorePreviewApp(controller: controller));
+      await tester.pump();
 
-    final back = find.byKey(const ValueKey('store_header_back_slot'));
-    final shortTop = tester.getTopLeft(back).dy;
+      final back = find.byKey(const ValueKey('store_header_back_slot'));
+      final shortTop = tester.getTopLeft(back).dy;
 
-    tester.view.physicalSize = const Size(360, 860);
-    await tester.pumpAndSettle();
-    final tallTop = tester.getTopLeft(back).dy;
+      tester.view.physicalSize = const Size(360, 860);
+      await tester.pump();
+      final tallTop = tester.getTopLeft(back).dy;
 
-    expect(tallTop, closeTo(shortTop, 0.01));
-    expect(tester.takeException(), isNull);
-  });
+      expect(tallTop, closeTo(shortTop, 0.01));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

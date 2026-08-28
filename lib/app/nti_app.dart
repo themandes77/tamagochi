@@ -46,10 +46,7 @@ class _NtiAppState extends State<NtiApp>
     super.initState();
     _bootstrap = widget.bootstrap;
     WidgetsBinding.instance.addObserver(this);
-    _sessionTicker = PetSessionTicker(
-      vsync: this,
-      onElapsed: _onSessionTick,
-    );
+    _sessionTicker = PetSessionTicker(vsync: this, onElapsed: _onSessionTick);
     unawaited(_initialize());
   }
 
@@ -137,9 +134,7 @@ class _NtiAppState extends State<NtiApp>
   }
 
   void _onSessionTick(Duration elapsed) {
-    if (_bootStatus != AppBootStatus.ready ||
-        _sessionPaused ||
-        _disposed) {
+    if (_bootStatus != AppBootStatus.ready || _sessionPaused || _disposed) {
       return;
     }
     _bootstrap.petLifecycleCoordinator.advance(elapsed);
@@ -189,7 +184,7 @@ class _NtiAppState extends State<NtiApp>
     }
 
     final context = _navigatorKey.currentContext;
-    if (context == null) {
+    if (context == null || !context.mounted) {
       return;
     }
 
@@ -252,13 +247,10 @@ class _NtiAppState extends State<NtiApp>
     );
   }
 
-  Future<void> _completeMinigameSession(
-    MinigameSessionResult result,
-  ) async {
+  Future<void> _completeMinigameSession(MinigameSessionResult result) async {
     final funGained = MinigameFunRewardPolicy.rewardFor(
       result,
-      maximumReward:
-          _bootstrap.petController.rules.maximumFunRewardPerGame,
+      maximumReward: _bootstrap.petController.rules.maximumFunRewardPerGame,
     );
 
     // Game Over es el cierre real de la partida para Pet. Persistimos la
@@ -268,7 +260,9 @@ class _NtiAppState extends State<NtiApp>
     await _bootstrap.storeController.persistRuntimeCoins();
   }
 
-  Future<void> _openStore({ShopItemKind initialKind = ShopItemKind.outfit}) async {
+  Future<void> _openStore({
+    ShopItemKind initialKind = ShopItemKind.outfit,
+  }) async {
     final navigator = _navigatorKey.currentState;
     if (navigator == null) {
       return;
@@ -285,9 +279,9 @@ class _NtiAppState extends State<NtiApp>
 
   Future<void> _exitApplication() async {
     try {
-      await _bootstrap.exitCoordinator
-          .saveBeforeExit()
-          .timeout(const Duration(seconds: 2));
+      await _bootstrap.exitCoordinator.saveBeforeExit().timeout(
+        const Duration(seconds: 2),
+      );
     } catch (error, stackTrace) {
       FlutterError.reportError(
         FlutterErrorDetails(
@@ -317,23 +311,22 @@ class _NtiAppState extends State<NtiApp>
   }
 
   void _queueLifecycleOperation(Future<void> Function() operation) {
-    _lifecycleTail = _lifecycleTail.then((_) => operation()).catchError(
-      (Object error, StackTrace stackTrace) {
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stackTrace,
-            library: 'nt_tamagochi.lifecycle',
-          ),
-        );
-      },
-    );
+    _lifecycleTail = _lifecycleTail.then((_) => operation()).catchError((
+      Object error,
+      StackTrace stackTrace,
+    ) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'nt_tamagochi.lifecycle',
+        ),
+      );
+    });
   }
 
   Future<void> _pauseSession() async {
-    if (_bootStatus != AppBootStatus.ready ||
-        _sessionPaused ||
-        _disposed) {
+    if (_bootStatus != AppBootStatus.ready || _sessionPaused || _disposed) {
       return;
     }
     _sessionPaused = true;
@@ -350,9 +343,7 @@ class _NtiAppState extends State<NtiApp>
   }
 
   Future<void> _resumeSession() async {
-    if (_bootStatus != AppBootStatus.ready ||
-        !_sessionPaused ||
-        _disposed) {
+    if (_bootStatus != AppBootStatus.ready || !_sessionPaused || _disposed) {
       return;
     }
     await _bootstrap.notificationCoordinator.onForeground();
@@ -368,9 +359,7 @@ class _NtiAppState extends State<NtiApp>
       return;
     }
     for (final notice in notices) {
-      messenger.showSnackBar(
-        SnackBar(content: Text(notice.message)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(notice.message)));
     }
   }
 
@@ -393,9 +382,7 @@ class _NtiAppState extends State<NtiApp>
       scaffoldMessengerKey: _messengerKey,
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF7E57C2),
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF7E57C2)),
       ),
       home: _buildHome(),
     );
