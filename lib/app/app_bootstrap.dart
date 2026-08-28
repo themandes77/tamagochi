@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_application_1/app/settings/app_preferences_controller.dart';
 import 'package:flutter_application_1/core/persistence/checksum_service.dart';
+import 'package:flutter_application_1/core/persistence/in_memory_json_file_storage.dart';
 import 'package:flutter_application_1/core/persistence/journal/journal_storage_policy.dart';
 import 'package:flutter_application_1/core/persistence/journal/local_transaction_journal_repository.dart';
 import 'package:flutter_application_1/core/persistence/journal/transaction_coordinator.dart';
@@ -65,37 +67,65 @@ class AppBootstrap {
     const audioService = NoOpAudioService();
     final noticeCenter = StorageNoticeCenter();
 
-    final petStorage = JsonFileStorage(
-      fileName: PersistenceFileNames.pet,
-      policy: PetStoragePolicy(rules: rules),
-      directoryProvider: directoryProvider,
-      checksumService: checksumService,
-      clock: clock,
-    );
+    final petStorage = kIsWeb
+        ? InMemoryJsonFileStorage(
+            fileName: PersistenceFileNames.pet,
+            policy: PetStoragePolicy(rules: rules),
+            checksumService: checksumService,
+            clock: clock,
+          )
+        : JsonFileStorage(
+            fileName: PersistenceFileNames.pet,
+            policy: PetStoragePolicy(rules: rules),
+            directoryProvider: directoryProvider,
+            checksumService: checksumService,
+            clock: clock,
+          );
 
-    final storeStorage = JsonFileStorage(
-      fileName: PersistenceFileNames.store,
-      policy: StoreStoragePolicy(),
-      directoryProvider: directoryProvider,
-      checksumService: checksumService,
-      clock: clock,
-    );
+    final storeStorage = kIsWeb
+        ? InMemoryJsonFileStorage(
+            fileName: PersistenceFileNames.store,
+            policy: StoreStoragePolicy(),
+            checksumService: checksumService,
+            clock: clock,
+          )
+        : JsonFileStorage(
+            fileName: PersistenceFileNames.store,
+            policy: StoreStoragePolicy(),
+            directoryProvider: directoryProvider,
+            checksumService: checksumService,
+            clock: clock,
+          );
 
-    final settingsStorage = JsonFileStorage(
-      fileName: PersistenceFileNames.appSettings,
-      policy: AppPreferencesStoragePolicy(),
-      directoryProvider: directoryProvider,
-      checksumService: checksumService,
-      clock: clock,
-    );
+    final settingsStorage = kIsWeb
+        ? InMemoryJsonFileStorage(
+            fileName: PersistenceFileNames.appSettings,
+            policy: AppPreferencesStoragePolicy(),
+            checksumService: checksumService,
+            clock: clock,
+          )
+        : JsonFileStorage(
+            fileName: PersistenceFileNames.appSettings,
+            policy: AppPreferencesStoragePolicy(),
+            directoryProvider: directoryProvider,
+            checksumService: checksumService,
+            clock: clock,
+          );
 
-    final journalStorage = JsonFileStorage(
-      fileName: PersistenceFileNames.transactionJournal,
-      policy: JournalStoragePolicy(),
-      directoryProvider: directoryProvider,
-      checksumService: checksumService,
-      clock: clock,
-    );
+    final journalStorage = kIsWeb
+        ? InMemoryJsonFileStorage(
+            fileName: PersistenceFileNames.transactionJournal,
+            policy: JournalStoragePolicy(),
+            checksumService: checksumService,
+            clock: clock,
+          )
+        : JsonFileStorage(
+            fileName: PersistenceFileNames.transactionJournal,
+            policy: JournalStoragePolicy(),
+            directoryProvider: directoryProvider,
+            checksumService: checksumService,
+            clock: clock,
+          );
 
     final petController = PetController(
       initialState: PetState.initial(nowUtc: clock.nowUtc(), rules: rules),
