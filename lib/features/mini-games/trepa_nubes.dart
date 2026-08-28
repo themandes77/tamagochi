@@ -365,7 +365,7 @@ class TrepaNubes extends PositionComponent
       final goTp = TextPainter(
         text: TextSpan(
           text:
-              'Game Over\nScore: $score\nMonedas: +$_earnedCoins\n\nTap to exit',
+              'Game Over\nScore: $score\nMonedas: +$_earnedCoins\n\nToca para volver al menú',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 28,

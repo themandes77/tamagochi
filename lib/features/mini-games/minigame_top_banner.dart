@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
 
 class MinigameTopBanner {
+  static const double _visibleTop = 8.0;
+  static const double _spriteVisibleTopFactor = 331 / 1024;
+  static const double _spriteVisibleBottomFactor = 602 / 1024;
   final double gameNameFontSize;
   final double scoreFontSize;
   final double widthScale;
@@ -30,8 +33,8 @@ class MinigameTopBanner {
   double bottom(Vector2 gameSize) {
     final bannerWidth = gameSize.x * widthScale;
     final bannerHeight = bannerWidth * 1024 / 1536;
-    final bannerY = 8 - bannerHeight * 0.30;
-    return bannerY + bannerHeight * 0.586;
+    final bannerY = _bannerY(bannerHeight);
+    return bannerY + bannerHeight * _spriteVisibleBottomFactor;
   }
 
   void render(
@@ -46,7 +49,7 @@ class MinigameTopBanner {
     final bannerWidth = gameSize.x * widthScale;
     final bannerHeight = bannerWidth * 1024 / 1536;
     final bannerX = (gameSize.x - bannerWidth) / 2;
-    final bannerY = 8 - bannerHeight * 0.30;
+    final bannerY = _bannerY(bannerHeight);
     banner.render(
       canvas,
       position: Vector2(bannerX, bannerY),
@@ -75,6 +78,13 @@ class MinigameTopBanner {
       left: bannerX + bannerWidth * 0.79 - CoinBalanceHud.width / 2,
       top: contentY - CoinBalanceHud.height / 2,
     );
+  }
+
+  double _bannerY(double bannerHeight) {
+    // El PNG incluye ~32% de padding transparente arriba. El offset negativo
+    // es intencional: anclamos el borde VISUAL del banner a una posición
+    // estable dentro del SafeArea, independientemente del ancho del teléfono.
+    return _visibleTop - bannerHeight * _spriteVisibleTopFactor;
   }
 
   void _drawText(

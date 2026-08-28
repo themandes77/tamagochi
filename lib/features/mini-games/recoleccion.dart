@@ -49,7 +49,7 @@ class Recoleccion extends PositionComponent
   static const double platformSideMargin = 12;
   static const double itemRadius = 18;
   static const double spawnInterval = 0.65;
-  static const double coinChance = 0.10;
+  static const double coinChance = 0.07;
   static const double likeChance = 0.10;
   static const double dislikeChance = 0.10;
 
@@ -333,7 +333,7 @@ class Recoleccion extends PositionComponent
       );
       _drawCenteredText(
         canvas,
-        'Toca para salir',
+        'Toca para volver al menú',
         size.y / 2 + 45,
         20,
         color: Colors.white70,

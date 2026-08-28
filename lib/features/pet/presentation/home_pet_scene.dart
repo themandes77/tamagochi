@@ -26,6 +26,7 @@ class HomePetScene extends FlameGame {
     required this.onCleaningContactStarted,
     required this.onCleaningContactStopped,
     required this.onCleaningGestureEnded,
+    required this.onCareCompleted,
     required this.isFoodToolSelected,
     required this.selectedFoodId,
     required this.isCleaningToolSelected,
@@ -41,6 +42,7 @@ class HomePetScene extends FlameGame {
   final bool Function() onCleaningContactStarted;
   final VoidCallback onCleaningContactStopped;
   final Future<void> Function() onCleaningGestureEnded;
+  final VoidCallback onCareCompleted;
   final bool Function() isFoodToolSelected;
   final String? Function() selectedFoodId;
   final bool Function() isCleaningToolSelected;
@@ -73,6 +75,7 @@ class HomePetScene extends FlameGame {
       onCleaningContactStarted: onCleaningContactStarted,
       onCleaningContactStopped: onCleaningContactStopped,
       onCleaningGestureEnded: onCleaningGestureEnded,
+      onCareCompleted: onCareCompleted,
       isFoodToolSelected: isFoodToolSelected,
       selectedFoodId: selectedFoodId,
       isCleaningToolSelected: isCleaningToolSelected,
@@ -162,6 +165,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     required this.onCleaningContactStarted,
     required this.onCleaningContactStopped,
     required this.onCleaningGestureEnded,
+    required this.onCareCompleted,
     required this.isFoodToolSelected,
     required this.selectedFoodId,
     required this.isCleaningToolSelected,
@@ -175,6 +179,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   final bool Function() onCleaningContactStarted;
   final VoidCallback onCleaningContactStopped;
   final Future<void> Function() onCleaningGestureEnded;
+  final VoidCallback onCareCompleted;
   final bool Function() isFoodToolSelected;
   final String? Function() selectedFoodId;
   final bool Function() isCleaningToolSelected;
@@ -444,18 +449,22 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
       return;
     }
 
+    final hadAcceptedContact = _contactAccepted;
     _stopCurrentContact();
     _dragGestureActive = false;
     _activePointerId = null;
-    unawaited(_finishCleaningAndReact());
+    unawaited(_finishCleaningAndReact(hadAcceptedContact));
   }
 
-  Future<void> _finishCleaningAndReact() async {
+  Future<void> _finishCleaningAndReact(bool hadAcceptedContact) async {
     final revision = ++_feedbackRevision;
 
     // Esta ruta devuelve cuando el estado lógico terminó; el checkpoint puede
     // seguir materializándose detrás. El mensaje ya no espera al disco.
     await onCleaningGestureEnded();
+    if (hadAcceptedContact) {
+      onCareCompleted();
+    }
     if (!isFullyClean()) {
       return;
     }

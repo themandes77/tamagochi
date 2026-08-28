@@ -27,6 +27,7 @@ class HomeScreen extends StatefulWidget {
     required this.storeController,
     required this.preferencesController,
     required this.onExitRequested,
+    this.onCareSucceeded,
     this.onPlayRequested,
     this.onStoreRequested,
     super.key,
@@ -37,6 +38,7 @@ class HomeScreen extends StatefulWidget {
   final StoreController storeController;
   final AppPreferencesController preferencesController;
   final Future<void> Function() onExitRequested;
+  final Future<void> Function()? onCareSucceeded;
   final Future<void> Function()? onPlayRequested;
   final Future<void> Function()? onStoreRequested;
 
@@ -51,16 +53,20 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _pauseOpen = false;
   bool _foodInventoryOpen = false;
   bool _exitRequested = false;
+  late bool _wasResting;
 
   @override
   void initState() {
     super.initState();
+    _wasResting = widget.homeController.isResting;
+    widget.homeController.addListener(_trackRestCompletion);
     _scene = HomePetScene(
       storeController: widget.storeController,
       onFoodTap: _handleFoodTap,
       onCleaningContactStarted: _beginCleaningContact,
       onCleaningContactStopped: widget.homeController.suspendCleaningContact,
       onCleaningGestureEnded: widget.homeController.finishCleaningGestureForInteraction,
+      onCareCompleted: _onCareCompleted,
       isFoodToolSelected: () =>
           widget.homeController.selectedTool == CareTool.food,
       selectedFoodId: () => widget.homeController.selectedFoodId,
@@ -75,13 +81,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    widget.homeController.removeListener(_trackRestCompletion);
     _messageTimer?.cancel();
     super.dispose();
   }
 
-  Future<FoodFeedResult> _handleFoodTap() {
+  void _trackRestCompletion() {
+    final resting = widget.homeController.isResting;
+    if (_wasResting && !resting) {
+      _onCareCompleted();
+    }
+    _wasResting = resting;
+  }
+
+  void _onCareCompleted() {
+    final callback = widget.onCareSucceeded;
+    if (callback != null) {
+      unawaited(callback());
+    }
+  }
+
+  Future<FoodFeedResult> _handleFoodTap() async {
     _scene.invalidateActionFeedback();
-    return widget.homeController.handleSelectedFoodTap();
+    final result = await widget.homeController.handleSelectedFoodTap();
+    if (result.status == FoodFeedStatus.success) {
+      _onCareCompleted();
+    }
+    return result;
   }
 
   bool _beginCleaningContact() {

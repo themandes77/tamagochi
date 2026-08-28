@@ -6,7 +6,13 @@ import 'package:flutter_application_1/core/persistence/storage_migration.dart';
 
 class AppPreferencesStoragePolicy implements JsonStoragePolicy {
   AppPreferencesStoragePolicy({JsonMigrationRegistry? migrations})
-      : migrations = migrations ?? JsonMigrationRegistry(currentVersion: 1);
+      : migrations = migrations ??
+            JsonMigrationRegistry(
+              currentVersion: 2,
+              steps: <int, JsonMigrationStep>{
+                1: _migrateV1ToV2,
+              },
+            );
 
   final JsonMigrationRegistry migrations;
 
@@ -117,5 +123,13 @@ class AppPreferencesStoragePolicy implements JsonStoragePolicy {
       return null;
     }
     return jsonDecode(match.group(1)!) as bool;
+  }
+
+  static Map<String, Object?> _migrateV1ToV2(Map<String, Object?> payload) {
+    return <String, Object?>{
+      ...payload,
+      'notificationPromptDecision': NotificationPromptDecision.notAsked.name,
+      'notificationLastVariants': <String, String>{},
+    };
   }
 }

@@ -49,13 +49,13 @@ void main() {
     final controller = StoreController(repository: InMemoryStoreRepository());
     await controller.initialize();
     await tester.pumpWidget(StorePreviewApp(controller: controller));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     final back = find.byKey(const ValueKey('store_header_back_slot'));
     final shortTop = tester.getTopLeft(back).dy;
 
     tester.view.physicalSize = const Size(360, 860);
-    await tester.pumpAndSettle();
+    await tester.pump();
     final tallTop = tester.getTopLeft(back).dy;
 
     expect(tallTop, closeTo(shortTop, 0.01));
