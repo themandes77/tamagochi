@@ -330,7 +330,7 @@ class Recoleccion extends PositionComponent
       );
       _drawCenteredText(
         canvas,
-        'Toca para salir',
+        'Toca para volver al menú',
         size.y / 2 + 45,
         20,
         color: Colors.white70,

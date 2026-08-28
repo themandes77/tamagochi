@@ -183,6 +183,7 @@ class HomeController extends ChangeNotifier {
         _cleaningGestureHadContact = true;
         return const HomeActionResult.accepted();
       case CareActionResult.alreadySatisfied:
+        _clearSelectedTool();
         return const HomeActionResult.rejected(HomeNotice.alreadyClean);
       case CareActionResult.completed:
       case CareActionResult.interrupted:
@@ -320,6 +321,12 @@ class HomeController extends ChangeNotifier {
   }
 
   void _forwardPetChange() {
+    if (_selectedTool == CareTool.soap &&
+        petController.rules.isAtMaximum(petController.state.cleanliness)) {
+      _cleaningGestureHadContact = false;
+      _clearSelectedTool();
+      return;
+    }
     notifyListeners();
   }
 

@@ -11,6 +11,8 @@ import 'package:flutter_application_1/core/persistence/storage_notice.dart';
 import 'package:flutter_application_1/core/time/app_clock.dart';
 import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
 import 'package:flutter_application_1/features/home/application/home_controller.dart';
+import 'package:flutter_application_1/features/notifications/application/notification_coordinator.dart';
+import 'package:flutter_application_1/features/notifications/domain/pet_notification_planner.dart';
 import 'package:flutter_application_1/features/pet/application/pet_controller.dart';
 import 'package:flutter_application_1/features/pet/application/pet_lifecycle_coordinator.dart';
 import 'package:flutter_application_1/features/pet/data/local_pet_repository.dart';
@@ -22,6 +24,7 @@ import 'package:flutter_application_1/features/store/application/store_controlle
 import 'package:flutter_application_1/integration/app/app_exit_coordinator.dart';
 import 'package:flutter_application_1/integration/audio/audio_service.dart';
 import 'package:flutter_application_1/integration/audio/noop_audio_service.dart';
+import 'package:flutter_application_1/integration/notifications/local_notification_service.dart';
 import 'package:flutter_application_1/integration/settings/app_preferences_storage_policy.dart';
 import 'package:flutter_application_1/integration/settings/local_app_preferences_repository.dart';
 import 'package:flutter_application_1/integration/store/local_store_repository.dart';
@@ -45,6 +48,8 @@ class AppBootstrap {
     required this.homeController,
     required this.storeController,
     required this.preferencesController,
+    required this.notificationCoordinator,
+    required this.notificationService,
     required this.audioService,
     required this.petTransactionParticipant,
     required this.storeTransactionParticipant,
@@ -126,6 +131,12 @@ class AppBootstrap {
       repository: preferencesRepository,
       audioService: audioService,
     );
+    final notificationService = LocalNotificationService();
+    final notificationCoordinator = NotificationCoordinator(
+      preferencesController: preferencesController,
+      service: notificationService,
+      planner: const PetNotificationPlanner(),
+    );
     final journalRepository = LocalTransactionJournalRepository(
       storage: journalStorage,
     );
@@ -182,6 +193,8 @@ class AppBootstrap {
       homeController: homeController,
       storeController: storeController,
       preferencesController: preferencesController,
+      notificationCoordinator: notificationCoordinator,
+      notificationService: notificationService,
       audioService: audioService,
       petTransactionParticipant: petTransactionParticipant,
       storeTransactionParticipant: storeTransactionParticipant,
@@ -203,6 +216,8 @@ class AppBootstrap {
   final HomeController homeController;
   final StoreController storeController;
   final AppPreferencesController preferencesController;
+  final NotificationCoordinator notificationCoordinator;
+  final LocalNotificationService notificationService;
   final AudioService audioService;
   final PetTransactionParticipant petTransactionParticipant;
   final StoreTransactionParticipant storeTransactionParticipant;
@@ -224,6 +239,7 @@ class AppBootstrap {
     onProgress?.call(0.60);
 
     await preferencesController.initialize();
+    await notificationCoordinator.initialize();
     onProgress?.call(0.70);
 
     // 3) Reconciliamos transacciones antes de modificar Pet por tiempo offline.

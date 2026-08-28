@@ -28,7 +28,7 @@ class MinigameHostGame extends FlameGame {
       onGameOverDetected;
   final VoidCallback onExitRequested;
 
-  late final MinigameSelector _selector;
+  late MinigameSelector _selector;
   PositionComponent? _activeGame;
   bool Function()? _activeGameOver;
   int Function()? _activeScore;
@@ -40,6 +40,8 @@ class MinigameHostGame extends FlameGame {
   bool _gameStartPending = false;
   bool _gameStarted = false;
   bool _gameOverCheckpointStarted = false;
+  Future<void>? _gameOverCheckpointFuture;
+  bool _returnToSelectorPending = false;
   bool _exitSent = false;
 
   bool get gameStarted => _gameStarted;
@@ -47,10 +49,7 @@ class MinigameHostGame extends FlameGame {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _selector = MinigameSelector(
-      onPlaySaltoEstelar: _openSaltoEstelar,
-      onPlayRecoleccion: _openRecoleccion,
-    );
+    _selector = _createSelector();
     await add(_selector);
   }
 
@@ -64,7 +63,9 @@ class MinigameHostGame extends FlameGame {
 
     if (_selector.isMounted) {
       _selectorWasMounted = true;
-    } else if (_selectorWasMounted && !_gameWasSelected) {
+    } else if (_selectorWasMounted &&
+        !_gameWasSelected &&
+        !_returnToSelectorPending) {
       _requestExit();
       return;
     }
@@ -79,14 +80,27 @@ class MinigameHostGame extends FlameGame {
         isGameOver() &&
         !_gameOverCheckpointStarted) {
       _gameOverCheckpointStarted = true;
-      unawaited(_checkpointGameOver());
+      _gameOverCheckpointFuture = _checkpointGameOver();
+      unawaited(_gameOverCheckpointFuture);
     }
 
     if (activeGame.isMounted) {
       _activeGameWasMounted = true;
-    } else if (_activeGameWasMounted) {
-      _requestExit();
+    } else if (_activeGameWasMounted && !_returnToSelectorPending) {
+      if (_activeGameOver?.call() == true) {
+        _returnToSelectorPending = true;
+        unawaited(_returnToSelectorAfterGameOver());
+      } else {
+        _requestExit();
+      }
     }
+  }
+
+  MinigameSelector _createSelector() {
+    return MinigameSelector(
+      onPlaySaltoEstelar: _openSaltoEstelar,
+      onPlayRecoleccion: _openRecoleccion,
+    );
   }
 
   void _openSaltoEstelar() {
@@ -173,6 +187,50 @@ class MinigameHostGame extends FlameGame {
       }
     } finally {
       _gameStartPending = false;
+    }
+  }
+
+  Future<void> _returnToSelectorAfterGameOver() async {
+    try {
+      if (!_gameOverCheckpointStarted) {
+        _gameOverCheckpointStarted = true;
+        _gameOverCheckpointFuture = _checkpointGameOver();
+      }
+      final checkpoint = _gameOverCheckpointFuture;
+      if (checkpoint != null) {
+        await checkpoint;
+      }
+
+      if (_exitSent) {
+        return;
+      }
+
+      _activeGame = null;
+      _activeGameOver = null;
+      _activeScore = null;
+      _activeCostPolicy = null;
+      _activeGameWasMounted = false;
+      _gameStarted = false;
+      _gameWasSelected = true;
+      _gameOverCheckpointStarted = false;
+      _gameOverCheckpointFuture = null;
+
+      _selectorWasMounted = false;
+      _selector = _createSelector();
+      await add(_selector);
+      _gameWasSelected = false;
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'nt_tamagochi.minigame_host',
+          context: ErrorDescription('al volver al selector tras Game Over'),
+        ),
+      );
+      _requestExit();
+    } finally {
+      _returnToSelectorPending = false;
     }
   }
 

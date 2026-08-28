@@ -39,6 +39,7 @@ class _NtiAppState extends State<NtiApp>
   bool _retryInProgress = false;
   bool _sessionPaused = false;
   bool _disposed = false;
+  bool _notificationPromptOpen = false;
 
   @override
   void initState() {
@@ -64,6 +65,8 @@ class _NtiAppState extends State<NtiApp>
       if (!mounted || _disposed) {
         return;
       }
+      _bootstrap.notificationService.onNotificationTap = _returnToHome;
+      await _bootstrap.notificationCoordinator.onForeground();
       setState(() {
         _bootProgress = 1.0;
         _bootStatus = AppBootStatus.ready;
@@ -154,6 +157,74 @@ class _NtiAppState extends State<NtiApp>
 
   void _stopTicker() {
     _sessionTicker.stop();
+  }
+
+  void _returnToHome() {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) {
+      return;
+    }
+    navigator.popUntil((route) => route.isFirst);
+  }
+
+  Future<void> _offerNotificationPermissionAfterCare() async {
+    if (_notificationPromptOpen ||
+        !_bootstrap.notificationCoordinator.shouldOfferPrePrompt ||
+        _sessionPaused ||
+        !mounted ||
+        _disposed) {
+      return;
+    }
+
+    // Dejamos terminar la reacción corta de cuidado para que el permiso no
+    // tape la propia interacción que acaba de explicar su utilidad.
+    await Future<void>.delayed(const Duration(milliseconds: 850));
+    if (!mounted ||
+        _disposed ||
+        _notificationPromptOpen ||
+        _sessionPaused ||
+        !_bootstrap.notificationCoordinator.shouldOfferPrePrompt ||
+        _bootstrap.homeController.isResting) {
+      return;
+    }
+
+    final context = _navigatorKey.currentContext;
+    if (context == null) {
+      return;
+    }
+
+    _notificationPromptOpen = true;
+    try {
+      final accepted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('My NTI'),
+          content: const Text(
+            '¿Quieres que nti te avise cuando necesite algo?',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Ahora no'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sí, avísame'),
+            ),
+          ],
+        ),
+      );
+
+      if (accepted == true) {
+        await _bootstrap.notificationCoordinator
+            .acceptPrePromptAndRequestPermission();
+      } else {
+        await _bootstrap.notificationCoordinator.declinePrePrompt();
+      }
+    } finally {
+      _notificationPromptOpen = false;
+    }
   }
 
   Future<void> _openMinigames() async {
@@ -271,6 +342,11 @@ class _NtiAppState extends State<NtiApp>
     await _bootstrap.feedingCoordinator.flushPendingMaterializations();
     await _bootstrap.petLifecycleCoordinator.pause();
     await _bootstrap.storeController.persistRuntimeCoins();
+    await _bootstrap.notificationCoordinator.scheduleForBackground(
+      state: _bootstrap.petController.state,
+      rules: _bootstrap.petController.rules,
+      nowLocal: DateTime.now(),
+    );
   }
 
   Future<void> _resumeSession() async {
@@ -279,6 +355,7 @@ class _NtiAppState extends State<NtiApp>
         _disposed) {
       return;
     }
+    await _bootstrap.notificationCoordinator.onForeground();
     await _bootstrap.petLifecycleCoordinator.resume();
     _sessionPaused = false;
     _startTicker();
@@ -301,6 +378,7 @@ class _NtiAppState extends State<NtiApp>
   void dispose() {
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
+    _bootstrap.notificationService.onNotificationTap = null;
     _stopTicker();
     _sessionTicker.dispose();
     unawaited(_bootstrap.dispose());
@@ -340,6 +418,7 @@ class _NtiAppState extends State<NtiApp>
       onPlayRequested: _openMinigames,
       onStoreRequested: () => _openStore(),
       onExitRequested: _exitApplication,
+      onCareSucceeded: _offerNotificationPermissionAfterCare,
     );
   }
 }

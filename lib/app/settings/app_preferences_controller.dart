@@ -22,6 +22,10 @@ class AppPreferencesController extends ChangeNotifier {
   double get musicVolume => _preferences.musicVolume;
   double get effectsVolume => _preferences.effectsVolume;
   bool get vibrationEnabled => _preferences.vibrationEnabled;
+  NotificationPromptDecision get notificationPromptDecision =>
+      _preferences.notificationPromptDecision;
+  Map<String, String> get notificationLastVariants =>
+      _preferences.notificationLastVariants;
   bool get isInitialized => _initialized;
 
   Future<void> initialize() async {
@@ -62,6 +66,44 @@ class AppPreferencesController extends ChangeNotifier {
     _preferences = _preferences.copyWith(vibrationEnabled: enabled);
     notifyListeners();
     await audioService.setVibrationEnabled(enabled);
+    await persist();
+  }
+
+
+  Future<void> setNotificationPromptDecision(
+    NotificationPromptDecision decision,
+  ) async {
+    if (decision == _preferences.notificationPromptDecision) {
+      return;
+    }
+    _preferences = _preferences.copyWith(notificationPromptDecision: decision);
+    notifyListeners();
+    await persist();
+  }
+
+  Future<void> setNotificationLastVariants(
+    Map<String, String> variants,
+  ) async {
+    if (variants.isEmpty) {
+      return;
+    }
+    final updated = <String, String>{..._preferences.notificationLastVariants};
+    var changed = false;
+    for (final entry in variants.entries) {
+      final variant = entry.value;
+      if (variant != 'a' && variant != 'b') {
+        throw ArgumentError.value(variant, 'variant', 'Debe ser a o b.');
+      }
+      if (updated[entry.key] != variant) {
+        updated[entry.key] = variant;
+        changed = true;
+      }
+    }
+    if (!changed) {
+      return;
+    }
+    _preferences = _preferences.copyWith(notificationLastVariants: updated);
+    notifyListeners();
     await persist();
   }
 
