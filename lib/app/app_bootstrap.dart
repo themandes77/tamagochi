@@ -21,6 +21,7 @@ import 'package:flutter_application_1/features/pet/domain/pet_state.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
 import 'package:flutter_application_1/integration/app/app_exit_coordinator.dart';
 import 'package:flutter_application_1/integration/audio/audio_service.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 import 'package:flutter_application_1/integration/audio/noop_audio_service.dart';
 import 'package:flutter_application_1/integration/settings/app_preferences_storage_policy.dart';
 import 'package:flutter_application_1/integration/settings/local_app_preferences_repository.dart';
@@ -225,6 +226,11 @@ class AppBootstrap {
 
     await preferencesController.initialize();
     onProgress?.call(0.70);
+
+    // Preparamos los reproductores mientras la pantalla de carga sigue visible.
+    // Así los efectos cortos pueden comenzar inmediatamente al usarse.
+    await GameSoundEffects.preload();
+    onProgress?.call(0.78);
 
     // 3) Reconciliamos transacciones antes de modificar Pet por tiempo offline.
     await transactionCoordinator.recoverPending();

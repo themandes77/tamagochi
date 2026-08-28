@@ -37,6 +37,7 @@ dependencies:
   flame: ^1.38.0
   crypto: ^3.0.7
   path_provider: ^2.1.6
+  flame_audio: ^2.12.2
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +72,7 @@ flutter:
     - assets/ui/icons/
     - assets/ui/loading/
     - assets/ui/pause/
+    - assets/audio/
     # - assets/images/Terrain/
     # - assets/slime/
 

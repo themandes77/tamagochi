@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/mini-games/minigame_top_banner.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 import 'package:flutter_application_1/integration/minigames/nti_minigame_avatar.dart';
 
 enum _PlatformType { normal, moving, dissolving }
@@ -263,6 +264,7 @@ class TrepaNubes extends PositionComponent
       if (dx * dx + dy * dy <= r * r) {
         coin.collected = true;
         CoinStore.instance.add(1);
+        _playCoinPickupSound();
       }
     }
     _coins.removeWhere(
@@ -279,6 +281,10 @@ class TrepaNubes extends PositionComponent
     }
   }
 
+  void _playCoinPickupSound() {
+    GameSoundEffects.playCoinPickup();
+  }
+
   @override
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, size.x, size.y);
@@ -288,7 +294,7 @@ class TrepaNubes extends PositionComponent
       final gradient = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors:[
+        colors: [
           const Color(0xFF1a1a2e),
           const Color(0xFF16213e),
           const Color(0xFF0f3460),

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/features/customization/data/default_customizations.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
@@ -12,6 +12,7 @@ import 'package:flutter_application_1/features/store/data/default_catalog.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/features/store/domain/store_repository.dart';
 import 'package:flutter_application_1/features/store/domain/store_snapshot.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 class StoreController extends ChangeNotifier {
   static const int maxFoodQuantityPerItem = 99;
@@ -116,14 +117,11 @@ class StoreController extends ChangeNotifier {
       }
 
       final updatedInventory = Map<String, int>.from(_state.foodInventory);
-      updatedInventory[food.id] =
-          (foodQuantity(food.id) + 1)
-              .clamp(0, maxFoodQuantityPerItem)
-              .toInt();
-      _state = _state.copyWith(
-        coins: coins,
-        foodInventory: updatedInventory,
-      );
+      updatedInventory[food.id] = (foodQuantity(food.id) + 1)
+          .clamp(0, maxFoodQuantityPerItem)
+          .toInt();
+      _state = _state.copyWith(coins: coins, foodInventory: updatedInventory);
+      _playPurchaseSound();
 
       try {
         await _saveAndNotify();
@@ -158,10 +156,7 @@ class StoreController extends ChangeNotifier {
     }
     final updatedInventory = Map<String, int>.from(_state.foodInventory);
     updatedInventory[foodId] = current - 1;
-    return _state.copyWith(
-      coins: coins,
-      foodInventory: updatedInventory,
-    );
+    return _state.copyWith(coins: coins, foodInventory: updatedInventory);
   }
 
   Future<PurchaseResult> purchase(String itemId) {
@@ -184,10 +179,8 @@ class StoreController extends ChangeNotifier {
       }
 
       final updatedItems = {..._state.ownedItemIds, item.id};
-      _state = _state.copyWith(
-        coins: coins,
-        ownedItemIds: updatedItems,
-      );
+      _state = _state.copyWith(coins: coins, ownedItemIds: updatedItems);
+      _playPurchaseSound();
 
       try {
         await _saveAndNotify();
@@ -310,6 +303,10 @@ class StoreController extends ChangeNotifier {
     });
 
     return completer.future;
+  }
+
+  void _playPurchaseSound() {
+    GameSoundEffects.playPurchase();
   }
 
   ShopItem? _findItem(String id) {

@@ -8,6 +8,7 @@ import 'package:flutter_application_1/coins.dart';
 import 'package:flutter_application_1/features/customization/domain/nti_outfit.dart';
 import 'package:flutter_application_1/features/mini-games/coin_balance_hud.dart';
 import 'package:flutter_application_1/features/mini-games/minigame_top_banner.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 import 'package:flutter_application_1/integration/minigames/nti_minigame_avatar.dart';
 
 enum _ItemType { fruit, coin, like, dislike }
@@ -168,9 +169,7 @@ class Recoleccion extends PositionComponent
       type = _ItemType.fruit;
       sprite = _elementSprites[_random.nextInt(_elementSprites.length)];
     }
-    if (sprite == null &&
-        type != _ItemType.like &&
-        type != _ItemType.dislike) {
+    if (sprite == null && type != _ItemType.like && type != _ItemType.dislike) {
       return;
     }
 
@@ -210,8 +209,8 @@ class Recoleccion extends PositionComponent
         item.y = _groundY + item.size;
         switch (item.type) {
           case _ItemType.coin:
-            
             CoinStore.instance.add(1);
+            _playCoinPickupSound();
             break;
           case _ItemType.fruit:
           case _ItemType.like:
@@ -246,6 +245,10 @@ class Recoleccion extends PositionComponent
       _gameOver = true;
       _items.clear();
     }
+  }
+
+  void _playCoinPickupSound() {
+    GameSoundEffects.playCoinPickup();
   }
 
   @override
@@ -354,12 +357,7 @@ class Recoleccion extends PositionComponent
     // Fallback técnico solamente: conserva la superficie visual sin tocar el
     // suelo lógico si por alguna razón el asset no puede cargarse.
     final fallback = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        platformSideMargin,
-        _groundY,
-        visualWidth,
-        visualHeight,
-      ),
+      Rect.fromLTWH(platformSideMargin, _groundY, visualWidth, visualHeight),
       const Radius.circular(14),
     );
     canvas.drawRRect(fallback, Paint()..color = const Color(0xFF8C5AC7));
@@ -382,20 +380,14 @@ class Recoleccion extends PositionComponent
     final painter = TextPainter(
       text: TextSpan(
         text: emoji,
-        style: TextStyle(
-          fontSize: hitboxSize * 0.92,
-          height: 1,
-        ),
+        style: TextStyle(fontSize: hitboxSize * 0.92, height: 1),
       ),
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     )..layout();
     painter.paint(
       canvas,
-      Offset(
-        centerX - painter.width / 2,
-        centerY - painter.height / 2,
-      ),
+      Offset(centerX - painter.width / 2, centerY - painter.height / 2),
     );
   }
 
