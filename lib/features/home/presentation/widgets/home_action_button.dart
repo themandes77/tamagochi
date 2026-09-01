@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 class HomeActionButton extends StatelessWidget {
   const HomeActionButton({
@@ -44,7 +45,12 @@ class HomeActionButton extends StatelessWidget {
               );
 
               return InkResponse(
-                onTap: enabled ? onPressed : null,
+                onTap: enabled
+                    ? () {
+                        GameSoundEffects.playButton();
+                        onPressed();
+                      }
+                    : null,
                 radius: math.max(36, constraints.maxWidth * 0.52),
                 containedInkWell: false,
                 child: AnimatedScale(

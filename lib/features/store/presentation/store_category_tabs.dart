@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/store/domain/shop_item.dart';
 import 'package:flutter_application_1/features/store/presentation/store_visual_tokens.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 class StoreCategoryTabs extends StatelessWidget {
   static const panelOverlap = 8.0;
@@ -122,7 +123,10 @@ class _StoreCategoryTab extends StatelessWidget {
               child: InkWell(
                 key: ValueKey('category_$keyName'),
                 borderRadius: BorderRadius.circular(20),
-                onTap: onTap,
+                onTap: () {
+                  GameSoundEffects.playButton();
+                  onTap();
+                },
                 splashColor: const Color(0x337446B8),
                 highlightColor: const Color(0x197446B8),
                 child: Padding(

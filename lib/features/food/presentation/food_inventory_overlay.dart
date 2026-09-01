@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/food/domain/food_item.dart';
 import 'package:flutter_application_1/features/food/presentation/food_artwork.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 class FoodInventoryOverlay extends StatelessWidget {
   const FoodInventoryOverlay({
@@ -82,7 +83,8 @@ class FoodInventoryOverlay extends StatelessWidget {
                                     _FoodPurchaseShortcut(
                                       onTap: onOpenPurchase,
                                     ),
-                                    for (final food in storeController.foodCatalog)
+                                    for (final food
+                                        in storeController.foodCatalog)
                                       _FoodInventoryTile(
                                         food: food,
                                         quantity: storeController.foodQuantity(
@@ -108,7 +110,10 @@ class FoodInventoryOverlay extends StatelessWidget {
                                     runSpacing: gap,
                                     children: <Widget>[
                                       for (final entry in entries)
-                                        SizedBox(width: itemWidth, child: entry),
+                                        SizedBox(
+                                          width: itemWidth,
+                                          child: entry,
+                                        ),
                                     ],
                                   );
                                 },
@@ -119,7 +124,8 @@ class FoodInventoryOverlay extends StatelessWidget {
                             animation: storeController,
                             builder: (context, _) {
                               final hasFood = storeController.foodCatalog.any(
-                                (food) => storeController.foodQuantity(food.id) > 0,
+                                (food) =>
+                                    storeController.foodQuantity(food.id) > 0,
                               );
                               if (hasFood) {
                                 return const SizedBox(height: 4);
@@ -167,7 +173,10 @@ class _FoodPurchaseShortcut extends StatelessWidget {
         child: InkWell(
           key: const ValueKey('food_inventory_purchase_shortcut'),
           borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
+          onTap: () {
+            GameSoundEffects.playButton();
+            onTap();
+          },
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFFDCC5EF).withValues(alpha: 0.82),
@@ -214,7 +223,12 @@ class _FoodInventoryTile extends StatelessWidget {
         child: InkWell(
           key: ValueKey('food_inventory_${food.id}'),
           borderRadius: BorderRadius.circular(18),
-          onTap: enabled ? () => onTap(food.id) : null,
+          onTap: enabled
+              ? () {
+                  GameSoundEffects.playButton();
+                  onTap(food.id);
+                }
+              : null,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),

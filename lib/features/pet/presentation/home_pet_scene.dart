@@ -10,6 +10,7 @@ import 'package:flutter_application_1/features/customization/presentation/room_b
 import 'package:flutter_application_1/features/food/application/feeding_coordinator.dart';
 import 'package:flutter_application_1/features/food/data/default_food_catalog.dart';
 import 'package:flutter_application_1/features/pet/domain/pet_activity.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 import 'package:flutter_application_1/features/pet/domain/pet_state.dart';
 import 'package:flutter_application_1/features/pet/presentation/nti_care_visual_state.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
@@ -104,10 +105,7 @@ class HomePetScene extends FlameGame {
     }
 
     nti.setCareVisualState(
-      NtiCareVisualResolver.resolve(
-        state: petState(),
-        activity: activity,
-      ),
+      NtiCareVisualResolver.resolve(state: petState(), activity: activity),
     );
     super.update(dt);
   }
@@ -158,7 +156,8 @@ class HomePetScene extends FlameGame {
 
 /// Capa de integración propia para conservar los gestos de cuidado existentes
 /// sin conectar el ToolBar de Azael ni duplicar el estado Pet dentro de Nti.
-class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, TapCallbacks {
+class _HomeCareInteractionLayer extends PositionComponent
+    with DragCallbacks, TapCallbacks {
   _HomeCareInteractionLayer({
     required this.nti,
     required this.onFoodTap,
@@ -263,6 +262,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
       final result = await onFoodTap();
       switch (result.status) {
         case FoodFeedStatus.success:
+          GameSoundEffects.playEat();
           final foodId = result.food?.id;
           if (foodId != null) {
             _startFoodConsumeAnimation(foodId);
@@ -303,6 +303,9 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     _activePointerId = event.pointerId;
     _dragGestureActive = true;
     _contactAccepted = onCleaningContactStarted();
+    if (_contactAccepted) {
+      GameSoundEffects.playWashing();
+    }
     _soapPosition = _contactAccepted ? event.localPosition.clone() : null;
   }
 
@@ -322,6 +325,9 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     if (_containsNtiPoint(localPosition)) {
       if (!_contactAccepted) {
         _contactAccepted = onCleaningContactStarted();
+        if (_contactAccepted) {
+          GameSoundEffects.playWashing();
+        }
       }
       _soapPosition = _contactAccepted ? localPosition.clone() : null;
       return;
@@ -356,6 +362,9 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     if (_dragGestureActive &&
         (!isCleaningToolSelected() ||
             (_contactAccepted && !isCleaningActive()))) {
+      if (_contactAccepted) {
+        unawaited(GameSoundEffects.stopWashing());
+      }
       _contactAccepted = false;
       _soapPosition = null;
     }
@@ -410,7 +419,8 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
     final visualWidth = nti.size.x * scaleX;
     final visualHeight = nti.size.y * scaleY;
     final baseSize = (visualWidth * 0.24).clamp(48.0, 78.0).toDouble();
-    final hover = nti.position +
+    final hover =
+        nti.position +
         Vector2(
           -visualWidth * 0.34,
           visualHeight * 0.24 + math.sin(_foodHoverPhase) * 2.4,
@@ -439,6 +449,7 @@ class _HomeCareInteractionLayer extends PositionComponent with DragCallbacks, Ta
   void _stopCurrentContact() {
     if (_contactAccepted) {
       onCleaningContactStopped();
+      unawaited(GameSoundEffects.stopWashing());
     }
     _contactAccepted = false;
     _soapPosition = null;

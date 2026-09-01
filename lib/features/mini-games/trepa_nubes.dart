@@ -49,7 +49,7 @@ class TrepaNubes extends PositionComponent
   final NtiOutfit ntiOutfit;
 
   static const double baseGravity = 1200;
-  static const double jumpVel = -520;
+  static const double jumpVel = -550;
   static const double basePlatW = 64;
   static const double platH = 14;
   static const double playerW = 60;
@@ -70,6 +70,9 @@ class TrepaNubes extends PositionComponent
   static const double brittleSpriteTopInset = 320 / 1024;
   double get _currentGravity => baseGravity + (score / 10) * 20;
   double get _currentScrollSpeed => baseScrollSpeed + (score / 50) * 5;
+  int get _platformSpawnCount => max(3, 6 - score ~/ 10);
+  double get _platformSpawnLookahead =>
+      _platformSpawnCount * platGap + gapVariance;
 
   late double px, py;
   double pvy = 0;
@@ -217,7 +220,7 @@ class TrepaNubes extends PositionComponent
       if (landingPlatform != null) {
         final platform = landingPlatform;
         py = platform.y - playerH - launchSeparation;
-        pvy = jumpVel;
+        _startJump();
         if (platform.type == _PlatformType.dissolving) {
           platform.dissolving = true;
           platform.dissolveTimer = dissolveTime;
@@ -238,11 +241,12 @@ class TrepaNubes extends PositionComponent
 
     final topWorldY = camY;
     if (_platforms.isEmpty ||
-        _platforms.map((p) => p.y).reduce(min) > topWorldY - 400) {
+        _platforms.map((p) => p.y).reduce(min) >
+            topWorldY - _platformSpawnLookahead) {
       final baseY = _platforms.isEmpty
           ? camY - 200
           : _platforms.map((p) => p.y).reduce(min);
-      for (int i = 0; i < 6; i++) {
+      for (int i = 0; i < _platformSpawnCount; i++) {
         _addPlatformAbove(baseY - (i + 1) * platGap);
       }
     }
@@ -283,6 +287,11 @@ class TrepaNubes extends PositionComponent
 
   void _playCoinPickupSound() {
     GameSoundEffects.playCoinPickup();
+  }
+
+  void _startJump() {
+    pvy = jumpVel;
+    GameSoundEffects.playJump();
   }
 
   @override
@@ -427,7 +436,7 @@ class TrepaNubes extends PositionComponent
     if (gameOver) return true;
     if (!_started) {
       _started = true;
-      pvy = jumpVel;
+      _startJump();
     }
     _dragX = event.localPosition.x;
     px = (_dragX - playerW / 2).clamp(0, size.x - playerW);
@@ -458,7 +467,7 @@ class TrepaNubes extends PositionComponent
   bool onTapDown(TapDownEvent event) {
     if (!_started) {
       _started = true;
-      pvy = jumpVel;
+      _startJump();
       return true;
     }
     if (gameOver) {

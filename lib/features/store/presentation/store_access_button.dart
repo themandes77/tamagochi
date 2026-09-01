@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 class StoreAccessButton extends PositionComponent with TapCallbacks {
   StoreAccessButton({required this.onPressed})
@@ -53,6 +54,7 @@ class StoreAccessButton extends PositionComponent with TapCallbacks {
 
   @override
   bool onTapDown(TapDownEvent event) {
+    GameSoundEffects.playButton();
     onPressed();
     return true;
   }

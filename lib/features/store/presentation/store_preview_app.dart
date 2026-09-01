@@ -15,6 +15,7 @@ import 'package:flutter_application_1/features/store/presentation/store_item_act
 import 'package:flutter_application_1/features/store/presentation/store_item_card_frame.dart';
 import 'package:flutter_application_1/features/store/presentation/store_showcase_stage.dart';
 import 'package:flutter_application_1/features/store/presentation/store_visual_tokens.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 ThemeData storeThemeFrom(ThemeOption _) {
   return ThemeData(
@@ -236,7 +237,8 @@ class _StoreScreenState extends State<StoreScreen> {
                                 child: Center(
                                   child: ConstrainedBox(
                                     constraints: const BoxConstraints(
-                                      maxWidth: _StoreLayoutSpec.maxContentWidth,
+                                      maxWidth:
+                                          _StoreLayoutSpec.maxContentWidth,
                                     ),
                                     child: Padding(
                                       padding: EdgeInsets.symmetric(
@@ -843,7 +845,10 @@ class _StoreItemCard extends StatelessWidget {
           child: InkWell(
             key: ValueKey('store_item_${item.id}'),
             borderRadius: BorderRadius.circular(StoreVisualTokens.cardRadius),
-            onTap: onSelected,
+            onTap: () {
+              GameSoundEffects.playButton();
+              onSelected();
+            },
             child: Padding(
               padding: compact
                   ? const EdgeInsets.fromLTRB(7, 7, 7, 7)
@@ -921,6 +926,7 @@ class _ItemActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPurchase = !owned;
+    final callback = onPressed;
     final label = equipped
         ? 'Equipado'
         : owned
@@ -946,7 +952,12 @@ class _ItemActionButton extends StatelessWidget {
             child: InkWell(
               key: ValueKey('store_action_${item.id}'),
               borderRadius: BorderRadius.circular(18),
-              onTap: onPressed,
+              onTap: callback == null
+                  ? null
+                  : () {
+                      GameSoundEffects.playButton();
+                      callback();
+                    },
               child: StoreItemActionButtonFrame(
                 isPrice: isPurchase,
                 child: Padding(

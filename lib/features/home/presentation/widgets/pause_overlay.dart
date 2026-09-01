@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/app/settings/app_preferences_controller.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 import 'package:flutter_application_1/features/store/presentation/store_visual_tokens.dart';
 
 /// Overlay de pausa construido como UI real sobre un shell artístico limpio.
@@ -100,11 +101,7 @@ class _ScaledPauseDesign extends StatelessWidget {
       child: FittedBox(
         fit: BoxFit.fill,
         alignment: Alignment.topLeft,
-        child: SizedBox(
-          width: designWidth,
-          height: designHeight,
-          child: child,
-        ),
+        child: SizedBox(width: designWidth, height: designHeight, child: child),
       ),
     );
   }
@@ -186,7 +183,11 @@ class _PauseDesign extends StatelessWidget {
         const Positioned(left: 56, top: 189, child: _GoldStar(size: 24)),
         const Positioned(right: 56, top: 189, child: _GoldStar(size: 24)),
         const Positioned(left: 91, top: 200, child: _DecorativeLine(width: 47)),
-        const Positioned(right: 91, top: 200, child: _DecorativeLine(width: 47)),
+        const Positioned(
+          right: 91,
+          top: 200,
+          child: _DecorativeLine(width: 47),
+        ),
         const Positioned(left: 108, top: 221, child: _SoftStar(size: 14)),
         const Positioned(right: 108, top: 221, child: _SoftStar(size: 14)),
 
@@ -575,9 +576,7 @@ class _PauseSlider extends StatelessWidget {
             },
             onHorizontalDragEnd: (_) => onChangeEnd(value),
             child: SizedBox.expand(
-              child: CustomPaint(
-                painter: _PauseSliderPainter(value: current),
-              ),
+              child: CustomPaint(painter: _PauseSliderPainter(value: current)),
             ),
           ),
         );
@@ -634,12 +633,13 @@ class _PauseSliderPainter extends CustomPainter {
       Offset(knobX, centerY),
       9.5,
       Paint()
-        ..shader = const RadialGradient(
-          center: Alignment(-0.35, -0.45),
-          colors: <Color>[Color(0xFFFFE489), StoreVisualTokens.gold],
-        ).createShader(
-          Rect.fromCircle(center: Offset(knobX, centerY), radius: 10),
-        ),
+        ..shader =
+            const RadialGradient(
+              center: Alignment(-0.35, -0.45),
+              colors: <Color>[Color(0xFFFFE489), StoreVisualTokens.gold],
+            ).createShader(
+              Rect.fromCircle(center: Offset(knobX, centerY), radius: 10),
+            ),
     );
   }
 
@@ -650,11 +650,7 @@ class _PauseSliderPainter extends CustomPainter {
 }
 
 class _PauseToggle extends StatelessWidget {
-  const _PauseToggle({
-    required this.value,
-    required this.onChanged,
-    super.key,
-  });
+  const _PauseToggle({required this.value, required this.onChanged, super.key});
 
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -672,9 +668,7 @@ class _PauseToggle extends StatelessWidget {
           child: SizedBox(
             width: 78,
             height: 42,
-            child: CustomPaint(
-              painter: _PauseTogglePainter(value: value),
-            ),
+            child: CustomPaint(painter: _PauseTogglePainter(value: value)),
           ),
         ),
       ),
@@ -690,7 +684,10 @@ class _PauseTogglePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Rect.fromLTWH(1, 2, size.width - 2, size.height - 4);
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(size.height / 2));
+    final rrect = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(size.height / 2),
+    );
 
     canvas.drawShadow(
       Path()..addRRect(rrect),
@@ -709,7 +706,11 @@ class _PauseTogglePainter extends CustomPainter {
     final radius = size.height * 0.39;
     final x = value ? size.width - radius - 7 : radius + 7;
     final center = Offset(x, size.height / 2);
-    canvas.drawCircle(center, radius + 1.8, Paint()..color = StoreVisualTokens.goldDark);
+    canvas.drawCircle(
+      center,
+      radius + 1.8,
+      Paint()..color = StoreVisualTokens.goldDark,
+    );
     canvas.drawCircle(
       center,
       radius,
@@ -769,7 +770,10 @@ class _PauseButton extends StatelessWidget {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
-          onTap: onPressed,
+          onTap: () {
+            GameSoundEffects.playButton();
+            onPressed();
+          },
           child: Center(
             child: FittedBox(
               fit: BoxFit.scaleDown,

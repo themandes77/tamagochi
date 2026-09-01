@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/home/presentation/widgets/segmented_status_bar.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 import 'package:flutter_application_1/theme/app_ui_assets.dart';
 
 class HomeTopBar extends StatelessWidget {
@@ -184,7 +185,12 @@ class _TopImageButton extends StatelessWidget {
       child: Opacity(
         opacity: enabled ? 1 : 0.45,
         child: InkResponse(
-          onTap: enabled ? onPressed : null,
+          onTap: enabled
+              ? () {
+                  GameSoundEffects.playButton();
+                  onPressed();
+                }
+              : null,
           radius: 24,
           child: SizedBox.square(
             dimension: 40,

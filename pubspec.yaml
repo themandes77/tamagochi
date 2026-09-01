@@ -75,7 +75,7 @@ flutter:
     - assets/ui/icons/
     - assets/ui/loading/
     - assets/ui/pause/
-    - assets/audio/
+    - assets/audio/sfx/
     # - assets/images/Terrain/
     # - assets/slime/
 

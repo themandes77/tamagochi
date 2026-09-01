@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/food/domain/food_item.dart';
 import 'package:flutter_application_1/features/food/presentation/food_artwork.dart';
 import 'package:flutter_application_1/features/store/application/store_controller.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 class FoodPurchaseDialog extends StatefulWidget {
   const FoodPurchaseDialog({required this.storeController, super.key});
@@ -58,7 +59,6 @@ class _FoodPurchaseDialogState extends State<FoodPurchaseDialog> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.sizeOf(context).height;
@@ -69,10 +69,7 @@ class _FoodPurchaseDialogState extends State<FoodPurchaseDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 500,
-          maxHeight: maxDialogHeight,
-        ),
+        constraints: BoxConstraints(maxWidth: 500, maxHeight: maxDialogHeight),
         child: Material(
           color: const Color(0xFFFFF8FC),
           elevation: 18,
@@ -119,7 +116,11 @@ class _FoodPurchaseDialogState extends State<FoodPurchaseDialog> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            for (var index = 0; index < foods.length; index++) ...<Widget>[
+                            for (
+                              var index = 0;
+                              index < foods.length;
+                              index++
+                            ) ...<Widget>[
                               if (index > 0) const SizedBox(height: 10),
                               _FoodPurchaseCard(
                                 food: foods[index],
@@ -233,7 +234,12 @@ class _FoodPurchaseCard extends StatelessWidget {
                     height: 34,
                     child: FilledButton(
                       key: ValueKey('food_purchase_buy_${food.id}'),
-                      onPressed: full ? null : onBuy,
+                      onPressed: full
+                          ? null
+                          : () {
+                              GameSoundEffects.playButton();
+                              onBuy();
+                            },
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
                         backgroundColor: const Color(0xFFFFC84E),

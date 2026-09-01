@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/features/store/presentation/store_visual_tokens.dart';
+import 'package:flutter_application_1/integration/audio/game_sound_effects.dart';
 
 /// Botón circular de regreso usado en el encabezado de la tienda.
 class StoreBackButton extends StatefulWidget {
@@ -58,7 +59,10 @@ class _StoreBackButtonState extends State<StoreBackButton> {
                     }
                     setState(() => _isPressed = value);
                   },
-                  onTap: widget.onPressed,
+                  onTap: () {
+                    GameSoundEffects.playButton();
+                    widget.onPressed();
+                  },
                   splashColor: const Color(0x55FFF1B5),
                   highlightColor: const Color(0x227744B8),
                   child: Image.asset(
