@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "NT Tamagochi",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Azael — Store preview",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/dev/azael_store_preview.dart"
+    }
+  ]
+}
