@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_application_1/app/app_bootstrap.dart';
 import 'package:flutter_application_1/app/boot/app_boot_status.dart';
 import 'package:flutter_application_1/app/presentation/app_loading_screen.dart';
+import 'package:flutter_application_1/app/presentation/app_transition_screen.dart';
 import 'package:flutter_application_1/core/persistence/storage_notice.dart';
 import 'package:flutter_application_1/core/time/pet_session_ticker.dart';
 import 'package:flutter_application_1/features/home/presentation/home_screen.dart';
@@ -40,6 +41,7 @@ class _NtiAppState extends State<NtiApp>
   bool _sessionPaused = false;
   bool _disposed = false;
   bool _notificationPromptOpen = false;
+  bool _showLaunchTransition = true;
 
   @override
   void initState() {
@@ -50,7 +52,20 @@ class _NtiAppState extends State<NtiApp>
       vsync: this,
       onElapsed: _onSessionTick,
     );
+    unawaited(_finishLaunchTransition());
     unawaited(_initialize());
+  }
+
+  Future<void> _finishLaunchTransition() async {
+    // La transición oficial se muestra como primer frame de Flutter mientras
+    // el bootstrap trabaja en paralelo. No modifica ni recorta el arte.
+    await Future<void>.delayed(const Duration(milliseconds: 650));
+    if (!mounted || _disposed) {
+      return;
+    }
+    setState(() {
+      _showLaunchTransition = false;
+    });
   }
 
   Future<void> _initialize() async {
@@ -402,6 +417,9 @@ class _NtiAppState extends State<NtiApp>
   }
 
   Widget _buildHome() {
+    if (_showLaunchTransition) {
+      return const AppTransitionScreen();
+    }
     if (_bootStatus != AppBootStatus.ready) {
       return AppLoadingScreen(
         status: _bootStatus,

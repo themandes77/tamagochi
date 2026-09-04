@@ -23,7 +23,7 @@ class AppLoadingScreen extends StatelessWidget {
     final normalizedProgress = progress.clamp(0.0, 1.0).toDouble();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF16045D),
+      backgroundColor: const Color(0xFF5D2F81),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final screenWidth = constraints.maxWidth;
@@ -37,10 +37,10 @@ class AppLoadingScreen extends StatelessWidget {
             children: <Widget>[
               Positioned.fill(
                 child: ColoredBox(
-                  color: const Color(0xFF16045D),
+                  color: const Color(0xFF5D2F81),
                   child: Image.asset(
                     AppUiAssets.loadingBackground,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.contain,
                     alignment: Alignment.center,
                     filterQuality: FilterQuality.high,
                   ),

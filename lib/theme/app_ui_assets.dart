@@ -8,7 +8,9 @@ abstract final class AppUiAssets {
   static const String actionSleep = 'assets/ui/home/action_sleep.png';
   static const String pausePanel = 'assets/ui/pause/pause_panel.png';
   static const String loadingBackground =
-      'assets/ui/loading/loading_background.png';
+      'assets/ui/loading/loading_background.jpg';
+  static const String transitionInterface =
+      'assets/images/ui/transition_interface.jpg';
   static const String loadingBarFrame =
       'assets/ui/loading/loading_bar_frame.png';
 
