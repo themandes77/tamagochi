@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties and replace the placeholders.
+# Keep android/key.properties and your .jks PRIVATE.
+storePassword=YOUR_STRONG_STORE_PASSWORD
+keyPassword=YOUR_STRONG_KEY_PASSWORD
+keyAlias=ntitamagochi
+storeFile=C:\\Users\\YOUR_WINDOWS_USER\\nti-tamagochi-release.jks
